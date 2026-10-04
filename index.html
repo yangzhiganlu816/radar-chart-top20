@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>雷达图 Top20 通用模板 | 可编辑成就栏</title>
+    <title>雷达图TOP20模板 | 可编辑成就栏</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -791,19 +791,6 @@
             transition: opacity 1.2s ease;
             font-family: "Orbitron", monospace;
         }
-        #startOverlay .content {
-            text-align: center;
-            animation: pulse 1.5s infinite;
-        }
-        #startOverlay h1 {
-            font-size: 2.8rem;
-            color: var(--theme-color);
-            text-shadow: 0 0 20px var(--theme-color);
-        }
-        @keyframes pulse {
-            0% { opacity: 0.6; transform: scale(1);}
-            100% { opacity: 1; transform: scale(1.02);}
-        }
         #startOverlay.hide {
             opacity: 0;
             pointer-events: none;
@@ -1453,7 +1440,7 @@
     <div id="startOverlay" aria-hidden="true">
         <div class="content">
             <p class="eyebrow">TOP 20 · MULTI-DIMENSION RANKING</p>
-            <div><h1>雷达图 Top20 通用模板</h1><p class="subtitle">鎏金六维 · 多领域评价 · 可编辑数据</p></div>
+            <div><h1>雷达图TOP20模板</h1><p class="subtitle">鎏金六维 · 多领域评价 · 可编辑数据</p></div>
             <p class="start-prompt">点击任意位置进入榜单</p>
             <div><div class="model-strip">
                 <span class="model-name">单文件 · 零依赖</span><span class="model-separator">/</span>
@@ -1463,10 +1450,7 @@
         </div>
     </div>
 
-<style id="template-startup-style">
-    #startOverlay { display:none !important; }
-    #rankingRulesOverlay { opacity:1; visibility:visible; }
-</style>
+<!-- 规则页样式。规则页是默认落地页，维度明细由 renderRulesPanel() 生成 -->
 <style id="ranking-rules-style">
     #rankingRulesOverlay { position:fixed; inset:0; z-index:2001; display:grid; place-items:center; background:#f5f5f3; color:#202124; font-family:Inter,"Noto Sans SC",sans-serif; opacity:0; visibility:hidden; transition:opacity .8s ease,visibility .8s; cursor:pointer; overflow:auto; }
     #rankingRulesOverlay.rules-visible { opacity:1; visibility:visible; }
@@ -1919,6 +1903,26 @@
             }
             singersRaw.sort((left, right) => weightedScoreUnits(left.points) - weightedScoreUnits(right.points));
 
+            // ---------- 名次计算（含并列） ----------
+            // singersRaw 已按加权分升序排好：idx 越大分数越高，名次越靠前，showRank = totalCount - idx。
+            // 同分的条目采用「并列、取最好名次」规则（即 1,2,2,4 式），并打上并列标记。
+            // 注意：这里按「实际分数」判定，不再依赖任何写死的名次数组。
+            const rankSlots = (() => {
+                const count = singersRaw.length;
+                const slots = new Array(count);
+                const scoreOf = i => weightedScoreUnits(singersRaw[i].points);
+                let high = count - 1;
+                while (high >= 0) {
+                    let low = high;
+                    while (low - 1 >= 0 && scoreOf(low - 1) === scoreOf(high)) low--;
+                    const rank = count - high;          // 并列组统一取组内最好名次
+                    const tied = high > low;            // 组内多于一个 → 并列
+                    for (let k = low; k <= high; k++) slots[k] = { rank, tied };
+                    high = low - 1;
+                }
+                return slots;
+            })();
+
             // 榜单统计区间与数据来源：显示在开场规则面板上，按需修改
             const rankingPeriod = { start: '2025-01-01', end: '2025-12-31' };
             const rankingSources = ['公开统计', '官方公布', '行业榜单'];
@@ -1964,7 +1968,8 @@
                     duration: s.duration,
                     precisions,
                     championDims: champDims,
-                    showRank: totalCount - idx,
+                    showRank: rankSlots[idx].rank,
+                    isTieRank: rankSlots[idx].tied,
                 };
             });
 
@@ -3015,7 +3020,8 @@
 
             function updateRightPanel(band){
                 // 生成 TOP#排名 格式HTML
-                const tieLabel = [8, 9, 12, 13, 15, 16].includes(band.showRank) ? '<span class="rank-tie-label">并列档</span>' : '';
+                // 并列标记由实际分数决定（见 rankSlots），不是写死的名次名单
+                const tieLabel = band.isTieRank ? '<span class="rank-tie-label">并列档</span>' : '';
                 bandNameDiv.innerHTML = `<span class="hero-artist-name">${band.name}</span> <span class="rank-number"><span class="rank-top">TOP</span><span class="rank-hash">#</span><span class="rank-digit" data-target="${band.showRank}">1</span>${tieLabel}</span>`;
                 loadArtistPhoto(band.name);
 
@@ -3916,7 +3922,16 @@
                 updateTimer();
             }
 
-            let introductionStage = 'rules';
+            // 引导流程的起点由「开屏页当前是否真的可见」决定，而不是写死。
+            // 这样删掉 skip-intro-overlay（恢复开屏）后，流程会自动变回
+            // 「开屏 → 规则页 → 榜单」，不需要再去改 JS。
+            const introCoverVisible = (() => {
+                const el = document.getElementById('startOverlay');
+                if (!el) return false;
+                const cs = getComputedStyle(el);
+                return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0';
+            })();
+            let introductionStage = introCoverVisible ? 'cover' : 'rules';
             let introductionTransition = false;
             // 转场锁只有极短的去抖窗口：锁定期间重复点击会被忽略，
             // 但不会像原来那样把 800ms 的收尾定时器当成"还没准备好"而丢掉用户的第二次点击。
@@ -4002,6 +4017,18 @@
             const overlayDiv = document.getElementById('startOverlay');
             overlayDiv.addEventListener('click', start);
             document.getElementById('rankingRulesOverlay').addEventListener('click', start);
+
+            // ---------- 启动方式 ----------
+            // false（默认）：落地页是规则页，等用户点击后进入榜单
+            // true         ：页面加载后自动进入榜单，不需要任何点击
+            // 想「开屏动画 + 点击进入」，删掉 HTML 里的 skip-intro-overlay 即可，
+            // 不需要动这里 —— 引导起点会自动识别。
+            const AUTO_START = false;
+            if (AUTO_START) {
+                introductionStage = 'ranking';
+                // 等两帧，确保布局与首屏绘制完成后再开始，避免转场起始状态错位
+                requestAnimationFrame(() => requestAnimationFrame(() => start()));
+            }
 
             // 全局进度条拖拽：mousemove 本来每次都会起一整套转场，
             // 这里用 rAF 合并到每帧最多一次，拖拽时不再叠出几十条动画链。
@@ -4424,35 +4451,73 @@
     #template-custom-toggle{position:fixed;left:14px;top:14px;z-index:100001;border:1px solid #777;border-radius:6px;background:#171717;color:#fff;padding:8px 12px;cursor:pointer}
     #template-custom{position:fixed;left:14px;top:58px;z-index:100001;width:300px;padding:14px;border:1px solid #666;border-radius:8px;background:#171717;color:#eee;font:13px/1.5 system-ui,"Microsoft YaHei",sans-serif;box-shadow:0 10px 30px #0009}
     #template-custom[hidden]{display:none} #template-custom label{display:block;margin:8px 0 4px;color:#bbb} #template-custom input{width:100%;padding:6px;background:#242424;border:1px solid #666;color:#fff;border-radius:4px} #template-custom button{margin-top:10px;padding:6px 9px;background:#303030;color:#fff;border:1px solid #666;border-radius:4px;cursor:pointer}
+    #template-custom .template-custom-hint{margin:10px 0 0;padding-top:8px;border-top:1px solid #444;color:#999;font-size:12px;line-height:1.7}
+    #template-custom .template-custom-hint code{background:#2a2a2a;padding:1px 4px;border-radius:3px;color:#d9c78e}
 </style>
 <button id="template-custom-toggle" type="button">自定义</button>
 <section id="template-custom" hidden>
-    <label for="template-title">主标题</label><input id="template-title" value="雷达图 Top20 通用模板">
+    <label for="template-title">主标题</label><input id="template-title" value="雷达图TOP20模板">
     <label for="template-subtitle">副标题</label><input id="template-subtitle" value="鎏金六维 · 多领域评价 · 可编辑数据">
-    <label for="template-item">当前项目名称</label><input id="template-item" placeholder="选择项目后修改">
-    <label for="template-image">当前项目图片</label><input id="template-image" type="file" accept="image/*">
+    <label for="template-item">当前显示名称</label><input id="template-item" placeholder="选择条目后修改">
+    <label for="template-image">当前条目图片</label><input id="template-image" type="file" accept="image/*">
     <button id="template-custom-save" type="button">保存设置</button>
+    <p class="template-custom-hint">
+        主标题/副标题会保存并长期生效。<br>
+        「当前显示名称/图片」只改本屏，切换条目后恢复。<br>
+        要永久改名请改 <code>singersRawOrder</code>。
+    </p>
 </section>
 <script>
-(() => {
+(function () {
     const panel = document.getElementById('template-custom');
     document.getElementById('template-custom-toggle').onclick = () => { panel.hidden = !panel.hidden; };
     const title = document.getElementById('template-title');
     const subtitle = document.getElementById('template-subtitle');
     const item = document.getElementById('template-item');
-    const saved = JSON.parse(localStorage.getItem('radar_template_custom') || '{}');
+    const LS_KEY = 'radarChart_templateCustom';
+    const saved = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+
+    // 主标题 / 副标题的真实落点：
+    //   1) 开屏页（被 skip-intro-overlay 隐藏，但恢复后要能显示正确文字）
+    //   2) 规则页标题（默认落地页，必须可见生效）
+    //   3) 浏览器标签页标题
+    function applyBranding(titleText, subtitleText) {
+        document.title = titleText;
+        const coverHeading = document.querySelector('#startOverlay h1');
+        if (coverHeading) coverHeading.textContent = titleText;
+        const coverSub = document.querySelector('#startOverlay .subtitle');
+        if (coverSub) coverSub.textContent = subtitleText;
+        const rulesHeading = document.querySelector('#rankingRulesOverlay .rules-heading h2');
+        if (rulesHeading) rulesHeading.textContent = titleText;
+    }
+
     if (saved.title) title.value = saved.title;
     if (saved.subtitle) subtitle.value = saved.subtitle;
+
+    // 启动时恢复已保存的品牌文案
+    if (saved.title || saved.subtitle) {
+        applyBranding(
+            saved.title || title.value,
+            saved.subtitle || subtitle.value
+        );
+    }
+
     function apply() {
-        const heading = document.querySelector('#startOverlay h1');
-        const sub = document.querySelector('#startOverlay .subtitle');
-        if (heading) heading.textContent = title.value;
-        if (sub) sub.textContent = subtitle.value;
+        applyBranding(title.value, subtitle.value);
+
+        // 当前显示名：只改本屏（切换条目时会被渲染逻辑重建），不做持久化
         const current = document.querySelector('#bandName .hero-artist-name');
         if (current && item.value) current.textContent = item.value;
-        localStorage.setItem('radar_template_custom', JSON.stringify({title:title.value, subtitle:subtitle.value}));
+
+        try {
+            localStorage.setItem(LS_KEY, JSON.stringify({
+                title: title.value,
+                subtitle: subtitle.value
+            }));
+        } catch (_) {}
     }
     document.getElementById('template-custom-save').onclick = apply;
+
     document.getElementById('template-image').addEventListener('change', event => {
         const file = event.target.files[0];
         const image = document.querySelector('#artistImg');
@@ -4461,9 +4526,14 @@
         reader.onload = () => { image.src = reader.result; image.style.opacity = '1'; };
         reader.readAsDataURL(file);
     });
+
+    // 把「当前正在显示的条目名」同步进输入框作为参照。
+    // 注意：只在输入框未聚焦时回填。原来的实现无条件回填，会把用户刚输入的内容
+    // 在 600ms 后覆盖掉，导致「改名」这个功能实际不可用。
     setInterval(() => {
+        if (document.activeElement === item) return;
         const current = document.querySelector('#bandName .hero-artist-name');
-        if (current && document.activeElement !== item) item.value = current.textContent.trim();
+        if (current) item.placeholder = current.textContent.trim();
     }, 600);
 })();
 </script>

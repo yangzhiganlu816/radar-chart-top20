@@ -370,15 +370,27 @@ delete artistImg.dataset.cropFocus;      // 恢复居中
 
 | style id | 作用 |
 |---|---|
-| `hide-model-strip` | 隐藏开屏的模型/工具署名条（想显示就删掉） |
-| `skip-intro-overlay` | 跳过开屏动画，直接显示规则页 |
+| `skip-intro-overlay` | **跳过开屏动画，直接落地规则页**（默认开启） |
+| `hide-model-strip` | 隐藏开屏的署名条（想显示就删掉这条） |
 | `presentation-tuning` | 录屏/展示模式微调，仅宽屏生效 |
-| `template-startup-style` | 开场动画时序 |
 | `ranking-rules-style` | 规则页样式 |
 | `portrait-tool-style` | 照片面板样式 |
 | `template-custom-style` | 自定义面板样式 |
 
-想改成"直接进榜单、不显示规则页"，删掉 `skip-intro-overlay` 即可。
+### 启动行为怎么改
+
+**开屏动画（`#startOverlay`）在 JS 层是完整的** —— 点击后 `cover.classList.add('hide')` 淡出。
+它只是被 `skip-intro-overlay` 用 `display:none !important` 藏起来了。
+
+| 想要的效果 | 怎么做 |
+|---|---|
+| **恢复开屏动画**（点一下才进榜单） | 删掉 `skip-intro-overlay` 整个 style 块 |
+| **直接进榜单**（不要规则页也不要开屏） | 保留 `skip-intro-overlay`，再加 `#rankingRulesOverlay{display:none!important}` |
+
+注意这两者是**独立的**：`skip-intro-overlay` 同时做了「藏开屏」和「显示规则页」两件事。
+
+另外 `#startOverlay .model-strip` 那条 CSS 原本挂的是第三方图标，现在内容已换成
+「单文件 · 零依赖 / 离线可用 / 数据本地存储」的静态文字，`hide-model-strip` 会把它一起藏掉。
 
 ---
 
