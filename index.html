@@ -1640,7 +1640,7 @@
             // ---------- 本地文件夹图片映射（文件名→ObjectURL） ----------
             const localPhotoMap = {};
             try {
-                const savedPortraits = JSON.parse(localStorage.getItem('chart2025_portraits') || '{}');
+                const savedPortraits = JSON.parse(localStorage.getItem('radarChart_portraits') || '{}');
                 Object.assign(localPhotoMap, savedPortraits);
             } catch (_) {}
 
@@ -1809,11 +1809,12 @@
             let editableAchievements = {};
 
             // ========== localStorage 持久化 ==========
-            const DATA_VERSION = "2025-platform-ranking-v5"; // 数据版本号，更新后自动清除旧缓存
-            const LS_KEY_VER = 'chart2025_version';
-            const LS_KEY_ACH = 'chart2025_achievements_v6';
-            const LS_KEY_PTS = 'chart2025_points';
-            const LS_KEY_HON = 'chart2025_honors_v6';
+            // 数据版本号：改动初始数据结构后手动 +1，启动时会自动清除用户旧缓存
+            const DATA_VERSION = "1.0.0";
+            const LS_KEY_VER = 'radarChart_version';
+            const LS_KEY_ACH = 'radarChart_achievements';
+            const LS_KEY_PTS = 'radarChart_points';
+            const LS_KEY_HON = 'radarChart_honors';
             
             // 检测版本变化，自动清除旧缓存
             (function checkVersion() {
@@ -2874,10 +2875,10 @@
             }
 
             // ===== BEST转场照片管理 =====
-            const LS_KEY_BEST_PHOTO = 'chart2025_best_photos';
+            const LS_KEY_BEST_PHOTO = 'radarChart_best_photos';
             try {
-                const savedBackgrounds = JSON.parse(localStorage.getItem('chart2025_best_backgrounds') || '{}');
-                localStorage.setItem('chart2025_best_backgrounds', JSON.stringify(savedBackgrounds));
+                const savedBackgrounds = JSON.parse(localStorage.getItem('radarChart_best_backgrounds') || '{}');
+                localStorage.setItem('radarChart_best_backgrounds', JSON.stringify(savedBackgrounds));
                 Object.assign(bestBackgrounds, savedBackgrounds);
             } catch (_) {}
             // 内置 BEST 界面照片（"恢复默认照片"会回到这里，而不是直接删空）
@@ -4161,7 +4162,7 @@
                     URL.revokeObjectURL(localPhotoMap[name]);
                     delete localPhotoMap[name];
                 }
-                localStorage.removeItem('chart2025_portraits');
+                localStorage.removeItem('radarChart_portraits');
                 matchInfoSpan.textContent = '';
                 matchInfoSpan.style.color = hexToRgba(currentTheme, 0.6);
                 clearLocalBtn.style.display = 'none';
@@ -4202,7 +4203,7 @@
                         invalidateImageAsset(previous);
                     }
                     localPhotoMap[name] = png;
-                    try { localStorage.setItem('chart2025_portraits', JSON.stringify(localPhotoMap)); } catch (_) {}
+                    try { localStorage.setItem('radarChart_portraits', JSON.stringify(localPhotoMap)); } catch (_) {}
                     // 只刷新画面上正在展示的那位歌手，照片不会写到其他歌手的卡片上
                     if (bands[renderedIdx] && bands[renderedIdx].name === name) loadArtistPhoto(name);
                 },
@@ -4210,9 +4211,9 @@
                     if (localPhotoMap[name]) invalidateImageAsset(localPhotoMap[name]);
                     delete localPhotoMap[name];
                     try {
-                        const saved = JSON.parse(localStorage.getItem('chart2025_portraits') || '{}');
+                        const saved = JSON.parse(localStorage.getItem('radarChart_portraits') || '{}');
                         delete saved[name];
-                        localStorage.setItem('chart2025_portraits', JSON.stringify(saved));
+                        localStorage.setItem('radarChart_portraits', JSON.stringify(saved));
                     } catch (_) {}
                     if (this.currentName() === name) loadArtistPhoto(name);
                 },
@@ -4248,7 +4249,7 @@
                     if (!hasBestDim(name)) throw new Error('该条目没有 BEST 标记');
                     if (bestBackgrounds[name]) invalidateImageAsset(bestBackgrounds[name]);
                     bestBackgrounds[name] = image;
-                    try { localStorage.setItem('chart2025_best_backgrounds', JSON.stringify(bestBackgrounds)); } catch (_) {}
+                    try { localStorage.setItem('radarChart_best_backgrounds', JSON.stringify(bestBackgrounds)); } catch (_) {}
                     delete document.getElementById('bestTransitionOverlay').dataset.bgUrl;
                     if (this.currentName() === name) loadArtistPhoto(name);
                     if (currentBestSingerName === name) {
