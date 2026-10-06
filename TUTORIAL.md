@@ -541,6 +541,20 @@ Object.keys(localStorage).filter(k => k.startsWith('radarChart_')).forEach(k => 
 **9. 把两个 overlay 都 `display:none` 后页面空白**  
 → 引导流程需要一个起点。要"直接进榜单"请用 `AUTO_START`，别手动藏 DOM（见 §11）。
 
+**10. 同一台机器上两个副本的数据互相覆盖**  
+→ 这是 `file://` 协议的特性，不是 bug：**浏览器把所有本地文件视为同一个 origin**
+（`location.origin` 就是字符串 `file://`），共用一份 localStorage。
+实测确认：在 A 文件的页面写入数据，导航到另一个目录的 B 文件后能直接读到。
+
+后果：两份副本的数据会互相覆盖；如果 `DATA_VERSION` 不同，打开其中一份会
+通过 `checkVersion` 清掉另一份的数据。
+
+解决：每个副本用独立端口起服务器（`python -m http.server 8000` / `8001`），
+不同端口是不同的 origin。或者只保留一份在用。
+
+顺带一提，这个特性也有正面用途：调试时想跨文件读同一份数据，`file://` 反而方便。
+但**发布和长期使用都建议走 `http://`**。
+
 ---
 
 ## 14. 二次开发方向
