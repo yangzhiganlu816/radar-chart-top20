@@ -609,6 +609,13 @@
             -moz-appearance: textfield;
             appearance: textfield;
         }
+        /* 改维度名时的输入框：沿用维度名的字体（非斜体数字体），边框改实线以示区分 */
+        .radar-score-input.radar-name-input {
+            font-family: Inter, "Noto Sans SC", sans-serif;
+            font-style: normal;
+            font-weight: 600;
+            border-style: solid;
+        }
         .radar-score-input::-webkit-outer-spin-button,
         .radar-score-input::-webkit-inner-spin-button {
             -webkit-appearance: none;
@@ -1515,7 +1522,7 @@
                 </div>
 
                 <div class="achievement-grid" id="achievementGrid"></div>
-                <div class="edit-hint" id="editHint">✏️ 点击雷达图分数或成就文字可直接编辑 · BEST 与雷达图自动联动 · <kbd>Ctrl+E</kbd> 打开六维分数面板</div>
+                <div class="edit-hint" id="editHint">✏️ 点击雷达图上的维度名、分数或成就文字可直接编辑 · BEST 与雷达图自动联动 · <kbd>Ctrl+E</kbd> 打开六维分数面板</div>
                 <div class="score-editor" id="scoreEditor" style="display:none;">
                     <div class="score-editor-title">⚡ 六维分数编辑（改完按Enter或点别处保存）
                         <span class="reset-btn" id="resetAllBtn" title="清除所有修改，恢复初始数据">↺ 重置全部</span>
@@ -1846,6 +1853,8 @@
                 localStorage.removeItem(LS_KEY_ACH);
                 localStorage.removeItem(LS_KEY_PTS);
                 localStorage.removeItem(LS_KEY_HON);
+                // 维度名也是用户改出来的，一并回到初始值
+                localStorage.removeItem(LS_KEY_DIMS);
             }
 
             // 先尝试读取localStorage
@@ -2450,7 +2459,23 @@
             const scoreEditorDiv = document.getElementById('scoreEditor');
             const scoreEditorGrid = document.getElementById('scoreEditorGrid');
             const resetAllBtn = document.getElementById('resetAllBtn');
+            // 六个维度的名称。可以直接改这里，也可以在页面上点雷达图的维度文字就地改
+            //（改法与改分数一致：Enter 或点别处保存，Esc 取消）。页面上的改动存 localStorage。
+            // 顺序与 dimDescriptions / rankingWeightPercent / 各条目 points 一一对应。
             const dimNames = ["全年热度","爆曲战绩","体量与商务","专业荣誉","现场实力","原创能力"];
+            const LS_KEY_DIMS = 'radarChart_dimNames';
+            // 恢复用户改过的维度名（长度或类型不符时整组忽略，避免错位）
+            (function restoreDimNames() {
+                try {
+                    const saved = JSON.parse(localStorage.getItem(LS_KEY_DIMS) || 'null');
+                    if (!Array.isArray(saved)) return;
+                    saved.forEach((value, index) => {
+                        if (index < dimNames.length && typeof value === 'string' && value.trim()) {
+                            dimNames[index] = value.trim();
+                        }
+                    });
+                } catch (_) {}
+            })();
             let scoreEditorVisible = false;
 
             // ===== Best 标记逻辑 =====
@@ -2570,10 +2595,31 @@
                 });
             }
 
-            // ===== 雷达图上的分数直接点击修改 =====
-            const radarScoreHits = new Array(6).fill(null); // 每帧记录各维度标签的命中区域（画布坐标）
+            // ===== 改维度名的统一入口 =====
+            // 维度名出现在三处（雷达图标签、规则页、六维面板），改名后必须全部同步，
+            // 否则会出现"图上是新名字、规则页还是旧名字"的不一致。
+            // 注意：说明文案（dimDescriptions）不跟着改，那是各维度含义的解释，需要改代码。
+            function applyDimNameChange(dimIdx, rawName) {
+                if (dimIdx < 0 || dimIdx >= dimCount) return false;
+                const name = String(rawName == null ? '' : rawName).replace(/\s+/g, ' ').trim();
+                if (!name || name === dimNames[dimIdx]) return false;
+                dimNames[dimIdx] = name;
+                persistJSON(LS_KEY_DIMS, dimNames);
+                renderRulesMeta();
+                if (scoreEditorVisible) renderScoreEditor(bands[currentIdx]);
+                showEditHint();
+                markSceneDirty();
+                return true;
+            }
+
+            // ===== 雷达图上的标签直接点击修改 =====
+            // 每个维度的标签分上下两层：上半是维度名（点击改名），下半是分数（点击改分）。
+            // 命中区域每帧由 drawRadar 记录，这里只负责读。
+            const radarScoreHits = new Array(6).fill(null);
             let radarHoverDim = -1;
+            let radarHoverKind = '';
             let radarEditDim = -1;
+            let radarEditKind = '';
             let radarScoreInput = null;
             let radarScoreInputCancelled = false;
             let radarScoreInputClosedAt = 0;
@@ -2587,25 +2633,33 @@
                 };
             }
 
-            function hitTestRadarScore(pt) {
-                let hitDim = -1;
+            // 返回 { dim, kind }；kind 为 'name'（点中维度名）或 'score'（点中分数）。
+            // 两个区域共用一个命中框，靠 nameBottom 这条分界线区分上下层。
+            function hitTestRadarLabel(pt) {
+                let hit = null;
                 let bestDist = Infinity;
                 for (let i = 0; i < 6; i++) {
                     if (i === radarEditDim) continue;
-                    const hit = radarScoreHits[i];
-                    if (!hit) continue;
-                    const dx = Math.max(0, Math.abs(pt.x - hit.x) - hit.w / 2);
-                    const dy = Math.max(0, Math.abs(pt.y - hit.y) - hit.h / 2);
+                    const box = radarScoreHits[i];
+                    if (!box) continue;
+                    const dx = Math.max(0, Math.abs(pt.x - box.x) - box.w / 2);
+                    const dy = Math.max(0, Math.abs(pt.y - box.y) - box.h / 2);
                     const dist = Math.hypot(dx, dy);
-                    if (dist <= 30 && dist < bestDist) { hitDim = i; bestDist = dist; }
+                    if (dist <= 30 && dist < bestDist) {
+                        bestDist = dist;
+                        hit = { dim: i, kind: pt.y <= box.nameBottom ? 'name' : 'score' };
+                    }
                 }
-                return hitDim;
+                return hit;
             }
 
             radarCanvas.addEventListener('mousemove', (e) => {
-                const dim = (!started || renderedIdx < 0 || radarEditDim >= 0) ? -1 : hitTestRadarScore(canvasPointFromEvent(e));
-                if (dim !== radarHoverDim) {
+                const hit = (!started || renderedIdx < 0 || radarEditDim >= 0) ? null : hitTestRadarLabel(canvasPointFromEvent(e));
+                const dim = hit ? hit.dim : -1;
+                const kind = hit ? hit.kind : '';
+                if (dim !== radarHoverDim || kind !== radarHoverKind) {
                     radarHoverDim = dim;
+                    radarHoverKind = kind;
                     radarCanvas.style.cursor = dim >= 0 ? 'pointer' : '';
                     markSceneDirty();
                 }
@@ -2613,50 +2667,70 @@
             radarCanvas.addEventListener('mouseleave', () => {
                 if (radarHoverDim !== -1) {
                     radarHoverDim = -1;
+                    radarHoverKind = '';
                     radarCanvas.style.cursor = '';
                     markSceneDirty();
                 }
             });
             radarCanvas.addEventListener('click', (e) => {
                 if (!started || renderedIdx < 0) return;
-                const dim = hitTestRadarScore(canvasPointFromEvent(e));
-                if (dim < 0) return;
+                const hit = hitTestRadarLabel(canvasPointFromEvent(e));
+                if (!hit) return;
                 // 刚收起的那一格在去抖窗口内不立刻重开（点击标签外确认）；点到别的格子则直接切换编辑目标
-                if (dim === radarScoreInputClosedDim && performance.now() - radarScoreInputClosedAt < 260) return;
+                if (hit.dim === radarScoreInputClosedDim && performance.now() - radarScoreInputClosedAt < 260) return;
                 e.stopPropagation();
-                openRadarScoreEditor(dim);
+                if (hit.kind === 'name') openRadarNameEditor(hit.dim);
+                else openRadarScoreEditor(hit.dim);
             });
             window.addEventListener('resize', () => { if (radarScoreInput) positionRadarScoreInput(); });
 
+            // 输入框的落点：分数框贴住分数文字，名字框贴住维度名文字，
+            // 视觉上都是"在原地改"。
             function positionRadarScoreInput() {
                 if (!radarScoreInput || radarEditDim < 0) return;
                 const hit = radarScoreHits[radarEditDim];
                 if (!hit) return;
+                const isName = radarEditKind === 'name';
                 const cRect = radarCanvas.getBoundingClientRect();
                 const pRect = radarCanvas.parentElement.getBoundingClientRect();
                 const scaleX = cRect.width / radarCanvas.width;
                 const scaleY = cRect.height / radarCanvas.height;
-                // 输入框落在分数文字的位置上，视觉上就是"原地改分"
                 radarScoreInput.style.left = ((cRect.left - pRect.left) + hit.x * scaleX) + 'px';
-                radarScoreInput.style.top = ((cRect.top - pRect.top) + (hit.y + 18) * scaleY) + 'px';
-                radarScoreInput.style.fontSize = Math.max(15, Math.round(40 * scaleX)) + 'px';
+                // 输入框用 translate(-50%,-50%) 居中，所以 top 直接给文字中心：
+                // 维度名画在 y-30，分数画在 y+12（hit.y 是 y-6）
+                radarScoreInput.style.top = ((cRect.top - pRect.top) + (isName ? hit.y - 24 : hit.y + 18) * scaleY) + 'px';
+                radarScoreInput.style.fontSize = Math.max(15, Math.round((isName ? 23 : 40) * scaleX)) + 'px';
                 radarScoreInput.style.width = Math.max(70, Math.round((hit.w + 26) * scaleX)) + 'px';
             }
 
-            function openRadarScoreEditor(dim) {
+            function openRadarScoreEditor(dim) { openRadarInlineEditor(dim, 'score'); }
+            function openRadarNameEditor(dim) { openRadarInlineEditor(dim, 'name'); }
+
+            // 维度名和分数共用同一个原地输入框，只有类型、取值和提交回调不同。
+            // 交互也保持一致：Enter 或点别处保存，Esc 取消。
+            function openRadarInlineEditor(dim, kind) {
                 const band = bands[renderedIdx];
                 if (!band) return;
                 closeRadarScoreEditor();
                 radarEditDim = dim;
+                radarEditKind = kind;
                 radarScoreInputCancelled = false;
+                const isName = kind === 'name';
                 const input = document.createElement('input');
-                input.type = 'number';
-                input.min = '0';
-                input.max = '15';
-                input.step = '0.5';
-                input.className = 'radar-score-input';
-                input.value = band.points[dim];
-                input.setAttribute('aria-label', dimNames[dim] + ' 分数');
+                input.className = isName ? 'radar-score-input radar-name-input' : 'radar-score-input';
+                if (isName) {
+                    input.type = 'text';
+                    input.maxLength = 12;
+                    input.value = dimNames[dim];
+                    input.setAttribute('aria-label', '维度名称');
+                } else {
+                    input.type = 'number';
+                    input.min = '0';
+                    input.max = '15';
+                    input.step = '0.5';
+                    input.value = band.points[dim];
+                    input.setAttribute('aria-label', dimNames[dim] + ' 分数');
+                }
                 radarCanvas.parentElement.appendChild(input);
                 radarScoreInput = input;
                 positionRadarScoreInput();
@@ -2666,10 +2740,13 @@
                     else if (e.key === 'Escape') { radarScoreInputCancelled = true; input.blur(); }
                 });
                 input.addEventListener('blur', () => {
-                    if (radarScoreInput !== input) return; // 已被外部关闭（切歌手等）
+                    if (radarScoreInput !== input) return; // 已被外部关闭（切条目等）
                     if (!radarScoreInputCancelled) {
-                        const val = parseFloat(input.value);
-                        if (!isNaN(val)) applyScoreChange(band, dim, val);
+                        if (isName) applyDimNameChange(dim, input.value);
+                        else {
+                            const val = parseFloat(input.value);
+                            if (!isNaN(val)) applyScoreChange(band, dim, val);
+                        }
                     }
                     closeRadarScoreEditor();
                 });
@@ -2687,6 +2764,7 @@
                 }
                 if (radarEditDim !== -1) {
                     radarEditDim = -1;
+                    radarEditKind = '';
                     markSceneDirty();
                 }
             }
@@ -3757,8 +3835,10 @@
                     const isBest = typeof globalMax[i] === 'number' &&
                         Math.abs(score - globalMax[i]) < 0.001 && score > 0;
                     const scoreAlpha = Math.min(1, fillEased * 1.5);
-                    const isEditingDim = radarEditDim === i;
-                    const isHovered = radarHoverDim === i && !isEditingDim;
+                    const isEditingDim = radarEditDim === i && radarEditKind === 'score';
+                    const isEditingName = radarEditDim === i && radarEditKind === 'name';
+                    const isHoverScore = radarHoverDim === i && radarHoverKind === 'score' && !isEditingDim;
+                    const isHoverName = radarHoverDim === i && radarHoverKind === 'name' && !isEditingName;
                     // BEST 徽标透明度平滑：夺冠淡入、失冠淡出（每帧向目标靠拢）
                     const bestAlphaTarget = isBest ? 1 : 0;
                     if (bestLabelAlpha[i] === null) bestLabelAlpha[i] = bestAlphaTarget;
@@ -3767,7 +3847,8 @@
                     if (align === 'right') x = Math.max(labelPadding, x);
                     y = Math.max(labelPadding + 30, Math.min(h - labelPadding - 12, y));
 
-                    // 记录本格标签的命中区域，供点击改分与输入框定位使用
+                    // 记录本格标签的命中区域，供点击编辑与输入框定位使用。
+                    // nameBottom 是分界线：其上是维度名（点击改名），其下是分数（点击改分）。
                     ctx.font = 'italic 700 40px Georgia, "Times New Roman", serif';
                     const valW = ctx.measureText(valStr).width;
                     ctx.font = '600 23px Inter, "Noto Sans SC", sans-serif';
@@ -3776,23 +3857,36 @@
                         x: align === 'left' ? x + valW / 2 : (align === 'right' ? x - valW / 2 : x),
                         y: y - 6,
                         w: Math.max(valW, nameW) + 28,
-                        h: 82
+                        h: 82,
+                        nameBottom: y - 6
                     };
-                    if (isEditingDim) positionRadarScoreInput(); // 布局重排时输入框跟着标签走
+                    if (radarEditDim === i) positionRadarScoreInput(); // 布局重排时输入框跟着标签走
 
                     ctx.textAlign = align;
                     ctx.textBaseline = 'middle';
                     ctx.shadowBlur = 0;
                     ctx.shadowColor = 'transparent';
 
-                    ctx.font = '600 23px Inter, "Noto Sans SC", sans-serif';
-                    ctx.fillStyle = isHovered ? hexToRgba(mixHex(currentTheme, "#FFFFFF", 0.45), 1) : '#ffffff';
-                    ctx.fillText(dimNames[i], x, y - 30);
+                    // 维度名（上半层）：悬停高亮并加下划线，提示这一行可以直接点击改名
+                    if (!isEditingName) {
+                        ctx.font = '600 23px Inter, "Noto Sans SC", sans-serif';
+                        ctx.fillStyle = isHoverName ? hexToRgba(mixHex(currentTheme, "#FFFFFF", 0.45), 1) : '#ffffff';
+                        ctx.fillText(dimNames[i], x, y - 30);
+                        if (isHoverName && scoreAlpha > 0.02) {
+                            const nameLineX = align === 'left' ? x : (align === 'right' ? x - nameW : x - nameW / 2);
+                            ctx.beginPath();
+                            ctx.moveTo(nameLineX, y - 15);
+                            ctx.lineTo(nameLineX + nameW, y - 15);
+                            ctx.strokeStyle = hexToRgba(mixHex(currentTheme, "#FFFFFF", 0.55), 0.9 * scoreAlpha);
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                        }
+                    }
 
                     if (!isEditingDim) {
                         ctx.font = 'italic 700 40px Georgia, "Times New Roman", serif';
-                        ctx.fillStyle = hexToRgba(mixHex(currentTheme, "#FFFFFF", isHovered ? 0.72 : 0.38), scoreAlpha);
-                        if (isHovered) {
+                        ctx.fillStyle = hexToRgba(mixHex(currentTheme, "#FFFFFF", isHoverScore ? 0.72 : 0.38), scoreAlpha);
+                        if (isHoverScore) {
                             ctx.shadowBlur = 16;
                             ctx.shadowColor = currentTheme;
                         }
@@ -3800,7 +3894,7 @@
                         ctx.shadowBlur = 0;
                         ctx.shadowColor = 'transparent';
                         // 悬停下划线：提示这一格分数可以直接点击修改
-                        if (isHovered) {
+                        if (isHoverScore) {
                             const lineX = align === 'left' ? x : (align === 'right' ? x - valW : x - valW / 2);
                             ctx.beginPath();
                             ctx.moveTo(lineX, y + 36);
@@ -4339,8 +4433,6 @@
             const svgNamespace = 'http://www.w3.org/2000/svg';
             const rulesGrid = document.getElementById('rulesRadarGrid');
             const rulesLabels = document.getElementById('rulesRadarLabels');
-            // 规则面板的维度名直接复用 dimNames，避免两处定义不一致
-            const rulesDimensions = dimNames;
             function rulesSvgElement(tag, attributes, parent, text) {
                 const node = document.createElementNS(svgNamespace, tag);
                 for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
@@ -4352,27 +4444,34 @@
                 return [800 + radius * Math.cos(angle), 800 + radius * Math.sin(angle)];
             });
             const rulesGridScores = [2, 4, 6, 8, 10];
-            for (let level = 0; level < rulesGridScores.length; level++) {
-                const gridScore = rulesGridScores[level];
-                const radius = dimensionRadiusRatio(gridScore) * 440;
-                if (gridScore !== RADAR_MAX_SCORE) {
-                    rulesSvgElement('polygon', { points: rulesPoints(radius).map(point => point.join(',')).join(' '), 'stroke-width': 1.2, 'stroke-opacity': .2 }, rulesGrid);
-                }
-                rulesSvgElement('text', { x: 818, y: 800 - radius + 20, 'font-size': 23, 'font-family': 'Inter, sans-serif', 'font-weight': 400, fill: '#E7CF7A' }, rulesLabels, String(gridScore));
-            }
-            rulesSvgElement('polygon', { points: rulesPoints(440 * 1.035).map(point => point.join(',')).join(' '), stroke: '#e3cb7d', 'stroke-width': 1.2, 'stroke-opacity': .38 }, rulesGrid);
-            rulesPoints(440).forEach((point, index) => {
-                rulesSvgElement('line', { x1: 800, y1: 800, x2: point[0], y2: point[1], 'stroke-width': 1.3, 'stroke-opacity': .28 }, rulesGrid);
-                rulesSvgElement('circle', { cx: point[0], cy: point[1], r: 5.5, fill: '#D4AF37', 'fill-opacity': .72, stroke: 'none' }, rulesGrid);
-                const centered = index === 0 || index === 3;
-                const right = index === 1 || index === 2;
-                const labelX = centered ? 800 : point[0] + (right ? 92 : -92);
-                const labelY = centered ? point[1] + (index === 0 ? -115 : 115) : point[1];
-                rulesSvgElement('text', { x: labelX, y: labelY - 30, 'text-anchor': centered ? 'middle' : right ? 'start' : 'end', 'dominant-baseline': 'middle' }, rulesLabels, rulesDimensions[index]);
-            });
 
-            // 规则面板的维度明细：与 dimNames / rankingWeightPercent / dimDescriptions 同源生成
-            (function renderRulesPanel() {
+            // 规则页左图（刻度环 + 维度标签）与右侧维度明细都从 dimNames 生成。
+            // 维度名可以在页面上就地改，所以这里必须是可重复调用的函数 ——
+            // 改名后调用一次，规则页立刻与新名字保持一致。
+            // 两个 <g> 容器本身是空的（样式挂在元素上），replaceChildren 不会丢样式。
+            function renderRulesMeta() {
+                rulesGrid.replaceChildren();
+                rulesLabels.replaceChildren();
+                for (let level = 0; level < rulesGridScores.length; level++) {
+                    const gridScore = rulesGridScores[level];
+                    const radius = dimensionRadiusRatio(gridScore) * 440;
+                    if (gridScore !== RADAR_MAX_SCORE) {
+                        rulesSvgElement('polygon', { points: rulesPoints(radius).map(point => point.join(',')).join(' '), 'stroke-width': 1.2, 'stroke-opacity': .2 }, rulesGrid);
+                    }
+                    rulesSvgElement('text', { x: 818, y: 800 - radius + 20, 'font-size': 23, 'font-family': 'Inter, sans-serif', 'font-weight': 400, fill: '#E7CF7A' }, rulesLabels, String(gridScore));
+                }
+                rulesSvgElement('polygon', { points: rulesPoints(440 * 1.035).map(point => point.join(',')).join(' '), stroke: '#e3cb7d', 'stroke-width': 1.2, 'stroke-opacity': .38 }, rulesGrid);
+                rulesPoints(440).forEach((point, index) => {
+                    rulesSvgElement('line', { x1: 800, y1: 800, x2: point[0], y2: point[1], 'stroke-width': 1.3, 'stroke-opacity': .28 }, rulesGrid);
+                    rulesSvgElement('circle', { cx: point[0], cy: point[1], r: 5.5, fill: '#D4AF37', 'fill-opacity': .72, stroke: 'none' }, rulesGrid);
+                    const centered = index === 0 || index === 3;
+                    const right = index === 1 || index === 2;
+                    const labelX = centered ? 800 : point[0] + (right ? 92 : -92);
+                    const labelY = centered ? point[1] + (index === 0 ? -115 : 115) : point[1];
+                    rulesSvgElement('text', { x: labelX, y: labelY - 30, 'text-anchor': centered ? 'middle' : right ? 'start' : 'end', 'dominant-baseline': 'middle' }, rulesLabels, dimNames[index]);
+                });
+
+                // 右侧维度明细：与 dimNames / rankingWeightPercent / dimDescriptions 同源生成
                 const periodEl = document.getElementById('rulesPeriod');
                 if (periodEl) periodEl.textContent = rankingPeriod.start + ' 至 ' + rankingPeriod.end;
                 const detailsEl = document.getElementById('rulesDetails');
@@ -4398,7 +4497,8 @@
                     row.append(heading, desc);
                     detailsEl.append(row);
                 });
-            })();
+            }
+            renderRulesMeta();
 
             requestAnimationFrame(tick);
         })();

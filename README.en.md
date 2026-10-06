@@ -35,7 +35,7 @@ Almost everything you'd want to change lives in one array; search for `singersRa
 | To change | Search for | Notes |
 |---|---|---|
 | Entry names and scores | `singersRawOrder` | **Also bump `DATA_VERSION`** — see the warning below |
-| Dimension names | `dimNames` | Order must match `points` |
+| Dimension names | `dimNames` | Order must match `points`; you can also edit them right on the page, see below |
 | Dimension descriptions | `dimDescriptions` | Same order as above |
 | Dimension weights | `rankingWeightPercent` | Must sum to 100 |
 | Theme colors | `themePalette` | Picked by order, so renames and edits never misalign them |
@@ -44,6 +44,14 @@ Almost everything you'd want to change lives in one array; search for `singersRa
 | Radar scale ceiling | `RADAR_MAX_SCORE` | 10 by default |
 
 > ⚠️ **The one mistake everyone makes**: after editing the initial data in code, change `DATA_VERSION` too. On startup the page compares versions and wipes local data when they differ. Skip it, and your edits get overwritten by whatever scores are already cached in the viewer's browser.
+
+### Dimension names are editable in place
+
+No code needed. Each dimension label on the chart has two layers: **the name on top, the score below**. Click either one to edit it right there — same interaction as editing a score, so Enter or clicking away saves, Esc cancels.
+
+Hovering turns the cursor into a pointer and adds an underline to show which layer you're on. After a rename, three places update together: the chart label, the intro rules screen, and the `Ctrl+E` panel. Changes are stored in the browser and survive a reload; 「↺ 重置全部」 resets them.
+
+One caveat: **this renames, it doesn't redefine**. The explanatory line under each dimension (`dimDescriptions`) stays put — that's the "what does this dimension measure" text, and changing it means editing the code.
 
 ### Photos are matched by filename
 
@@ -114,6 +122,7 @@ The keys, in case you need to inspect them manually:
 | Key | Contents |
 |---|---|
 | `radarChart_points` | Per-entry scores |
+| `radarChart_dimNames` | Custom dimension names |
 | `radarChart_honors` | Per-entry achievement text |
 | `radarChart_achievements` | Editable achievements |
 | `radarChart_portraits` | Entry card photos |

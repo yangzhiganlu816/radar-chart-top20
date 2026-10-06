@@ -105,7 +105,7 @@ function weightedScoreUnits(points) {
 
 ```
 radar-chart-top20/
-├── index.html          # 整个应用（HTML + CSS + JS，约 4800 行）
+├── index.html          # 整个应用（HTML + CSS + JS，约 5150 行）
 ├── README.md           # 快速上手 + 配置速查（中文）
 ├── README.en.md        # 英文版 README
 ├── GUIDE.md            # 傻瓜版教程（不需要懂编程）

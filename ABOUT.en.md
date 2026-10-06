@@ -99,7 +99,7 @@ Multiplying by 100 and rounding first converts floats to integers before accumul
 
 ```
 radar-chart-top20/
-├── index.html       # The entire app (HTML + CSS + JS, ~4800 lines)
+├── index.html       # The entire app (HTML + CSS + JS, ~5150 lines)
 ├── README.md        # Quick start + config reference (Chinese)
 ├── README.en.md     # This document's sibling — full English README
 ├── GUIDE.md         # Non-programmer guide (Chinese)

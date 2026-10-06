@@ -2,23 +2,27 @@
 
 面向有编程基础的人。假设你熟悉 HTML / CSS / JS，能读懂 IIFE、闭包、`localStorage`。
 
-行号基于当前 `index.html`（约 4800 行）。**行号会漂移，用 `Ctrl+F` 搜代码片段更可靠** —— 每个小节都给了搜索关键词。
+行号基于当前 `index.html`（约 5150 行）。**行号会漂移，用 `Ctrl+F` 搜代码片段更可靠** —— 每个小节都给了搜索关键词。
 
 ---
 
 ## 1. 整体架构
 
-整个应用是**一个 HTML 文件里的三段独立 `<script>`**：
+整个应用是**一个 HTML 文件里的四段独立 `<script>`**：
 
-| script       | 作用                                        |
-| ------------ | ----------------------------------------- |
-| #1（约 2700 行） | 核心：数据、状态机、渲染、动画。包在一个 IIFE 里，**不暴露任何全局变量** |
-| #2（34 行）     | 人脸定位钩子（当前是空实现，见 §9）                       |
-| #3（约 330 行）  | 照片/模板自定义面板的 UI 逻辑                         |
+| script | 作用 |
+|---|---|
+| #1（约 2900 行） | 核心：数据、状态机、渲染、动画。包在一个 IIFE 里，**不暴露任何全局变量**。开头的 `getFacePosition` 是人脸对齐钩子（当前返回 `null`，见 §9） |
+| #2（约 70 行） | 模板自定义面板：左下角「自定义」按钮，改主标题与副标题 |
+| #3（约 350 行） | 照片管理面板：📷 按钮，上传、裁剪、BEST 照片与背景 |
+| #4（约 64 行） | 展示模式开关（见 §11.1），只加/删 `body` 上的一个 class |
 
 页面 DOM 大部分在 HTML 里静态写死，JS 负责填内容和驱动动画。
 
 **为什么值得知道**：没有 `var` 泄漏到 `window`，所以你在控制台敲 `bands` 是 `undefined` 的。这是刻意的（避免命名冲突），但意味着**调试时不能直接在控制台改状态** —— 得先在代码里加临时 `window.__debug = { bands, currentIdx, ... }`。
+
+后三段 script 之间靠 `window.top20PortraitBridge` 通信（#1 暴露，#3 消费），
+这是唯一刻意放在全局的接口。
 
 ---
 
@@ -117,7 +121,7 @@ const RADAR_OVERFLOW_THRESHOLD = 8.5;
 
 ### 5.1 条目数据
 
-搜 `singersRawOrder`（约 1692 行）：
+搜 `singersRawOrder`（约 1683 行）：
 
 ```js
 const singersRawOrder = [
@@ -137,21 +141,23 @@ const singersRawOrder = [
 
 ### 5.2 维度定义
 
-搜 `dimNames`（约 2447 行）：
+搜 `dimNames`（约 2465 行）：
 
 ```js
 const dimNames = ["全年热度","爆曲战绩","体量与商务","专业荣誉","现场实力","原创能力"];
 ```
 
-搜 `dimDescriptions`（约 1925 行）—— 开场规则页的说明文案，**顺序必须和 `dimNames` 对应**。
+搜 `dimDescriptions`（约 1939 行）—— 开场规则页的说明文案，**顺序必须和 `dimNames` 对应**。
 
-搜 `rankingWeightPercent`（约 1871 行）—— 权重，**总和必须为 100**。
+搜 `rankingWeightPercent`（约 1865 行）—— 权重，**总和必须为 100**。
 
-**改这三个数组，界面全局同步。** 开场规则页的维度明细、雷达图标签、分数面板都是同源生成的（`renderRulesPanel()`，搜约 4297 行），不会出现"改了维度名，规则页还显示旧名"的不同步。
+**改这三个数组，界面全局同步。** 开场规则页的维度明细、雷达图标签、分数面板都是同源生成的，不会出现"改了维度名，规则页还显示旧名"的不同步。
+
+另外：**`dimNames` 可以在页面上直接点着改**，不必动代码 —— 雷达图标签的上半层就是维度名，点击即可就地编辑。改动存 `localStorage`，实现见 §10「就地编辑」。所以代码里的这个数组是"初始值"，不是唯一来源。
 
 ### 5.3 配色
 
-搜 `themePalette`（约 1627 行）：
+搜 `themePalette`（约 1618 行）：
 
 ```js
 const themePalette = [
@@ -164,14 +170,14 @@ const themePalette = [
 
 ### 5.4 默认文案
 
-搜 `achievementDefaults`（约 1729 行）—— 三组成就文案（综合荣誉 / 代表作 / 数据亮点），按索引取。  
+搜 `achievementDefaults`（约 1720 行）—— 三组成就文案（综合荣誉 / 代表作 / 数据亮点），按索引取。  
 搜 `albumTexts` / `mvpTexts`（约 2979 / 2985 行）—— 成绩标签的两个短句。
 
 ---
 
 ## 6. 持久化
 
-搜 `LS_KEY_`（约 1813 行）：
+搜 `LS_KEY_`（约 1805 行）：
 
 ```js
 const DATA_VERSION = "1.0.0";          // 改动初始数据结构后手动 +1
@@ -179,17 +185,21 @@ const LS_KEY_VER  = 'radarChart_version';
 const LS_KEY_ACH  = 'radarChart_achievements';
 const LS_KEY_PTS  = 'radarChart_points';
 const LS_KEY_HON  = 'radarChart_honors';
+const LS_KEY_DIMS = 'radarChart_dimNames';   // 维度名（可在页面上点着改）
 ```
 
-| key                           | 存什么         |
-| ----------------------------- | ----------- |
-| `radarChart_points`           | 每个条目的 6 个分数 |
-| `radarChart_honors`           | 每个条目的成就文案   |
-| `radarChart_achievements`     | 三组可编辑成就     |
-| `radarChart_portraits`        | 条目卡片照片      |
-| `radarChart_best_photos`      | BEST 转场照片   |
-| `radarChart_best_backgrounds` | BEST 背景图    |
-| `radarChart_version`          | 数据版本号       |
+| key | 存什么 |
+|---|---|
+| `radarChart_points` | 每个条目的 6 个分数 |
+| `radarChart_dimNames` | 自定义的维度名 |
+| `radarChart_honors` | 每个条目的成就文案 |
+| `radarChart_achievements` | 三组可编辑成就 |
+| `radarChart_portraits` | 条目卡片照片 |
+| `radarChart_best_photos` | BEST 转场照片 |
+| `radarChart_best_backgrounds` | BEST 背景图 |
+| `radarChart_presentMode` | 展示模式开关（在文件末尾那个 script 里读写） |
+| `radarChart_templateCustom` | 自定义面板的主标题/副标题 |
+| `radarChart_version` | 数据版本号 |
 
 **关键机制**（搜 `checkVersion`）：启动时对比 `DATA_VERSION`，不一致就清空所有用户数据。所以 ——
 
@@ -197,7 +207,8 @@ const LS_KEY_HON  = 'radarChart_honors';
 
 这是最容易踩的坑。改初始数据 = 必须 bump 版本号。
 
-清空用户数据：搜 `clearStorage()`，或者界面上点「↺ 重置全部」。
+清空用户数据：搜 `clearStorage()` 或界面上点「↺ 重置全部」。注意 `clearStorage` 会连
+`LS_KEY_DIMS`（维度名）一起清掉 —— 维度名也是用户改出来的，理应一起回初始值。
 
 **数据只存在本地浏览器，不上传任何服务器。**
 
@@ -205,9 +216,9 @@ const LS_KEY_HON  = 'radarChart_honors';
 
 ## 7. BEST 判定
 
-搜索 `hasBestDim`（约 2463 行）。**BEST 判定有两条路径，都指向同一结果，但数据源不同** —— 改这块时务必看清你在改哪条。
+搜索 `hasBestDim`（约 2493 行）。**BEST 判定有两条路径，都指向同一结果，但数据源不同** —— 改这块时务必看清你在改哪条。
 
-**路径 A：`globalMax` 数组**（`bands` 构造时用，约 1991 行）
+**路径 A：`globalMax` 数组**（`bands` 构造时用，约 1955 行）
 
 ```js
 const champDims = [];
@@ -218,7 +229,7 @@ for (let i = 0; i < dimCount; i++) {
 
 用 `Math.abs(...) < 0.001` 而不是 `===` —— 容差比较，避免浮点误差让"本该并列"判成不并列。`champDims` 存进 `bands[i]`，驱动雷达图高亮。
 
-**路径 B：`getMaxScoreInDim` 实时计算**（`isBestInDim` 用，约 2452 行）
+**路径 B：`getMaxScoreInDim` 实时计算**（`isBestInDim` 用，约 2485 行）
 
 ```js
 function getMaxScoreInDim(dimIdx) {
@@ -253,13 +264,13 @@ function isBestInDim(singerName, dimIdx) {
 
 ### 8.1 dataURL → blob URL
 
-搜 `dataUrlToBlobUrl`（约 2732 行）。
+搜 `dataUrlToBlobUrl`（约 2816 行）。
 
 直接把几十 MB 的 base64 塞进 `<img src>`，浏览器每次切换都要在主线程同步做 base64 解码 + 图像解码 —— 必然掉帧。方案是**一次性转成 `blob:` URL 并缓存**（`blobUrlCache`），后续复用。
 
 ### 8.2 预解码 + LRU
 
-搜 `getDecodedImage`（约 2763 行）。
+搜 `getDecodedImage`（约 2847 行）。
 
 用 `img.decode()` 提前完成解码，替换 `src` 时基本不再付出解码代价。`decodedImageCache` 是 LRU，`MAX_DECODED_IMAGES = 6` —— 只保留最近 6 张解码位图，防止内存堆积。
 
@@ -287,7 +298,7 @@ const idle = window.requestIdleCallback
 
 ### 8.5 批量配图
 
-搜 `extractSingerName`（约 1648 行）+ `loadLocalPhotos`（约 1653 行）。
+搜 `extractSingerName`（约 1639 行）+ `loadLocalPhotos`（约 1644 行）。
 
 文件名去扩展名去空格后与条目名匹配。精确匹配优先，失败则去空格做模糊匹配（兼容中英文差异）。所以 `项目1.jpg` 和 `项目1 .jpg` 都能配给「项目1」。
 
@@ -372,28 +383,66 @@ delete artistImg.dataset.cropFocus;      // 恢复居中
 
 ### 快捷键
 
-| 键              | 作用              |
-| -------------- | --------------- |
-| `Ctrl+E`       | 开/关六维分数编辑面板     |
+| 键 | 作用 |
+|---|---|
+| `Ctrl+E` | 开/关六维分数编辑面板 |
 | `Ctrl+Shift+P` | 切换展示模式（见 §11.1） |
-| `←` / `→`      | 上一条 / 下一条       |
-| `空格`           | 暂停 / 继续         |
-| `Enter`        | 确认编辑（编辑分数或文案时）  |
-| `Esc`          | 取消编辑，恢复原值       |
+| `←` / `→` | 上一条 / 下一条 |
+| `空格` | 暂停 / 继续 |
+| `Enter` | 确认编辑（维度名 / 分数 / 文案） |
+| `Esc` | 取消编辑，恢复原值 |
 
-搜 `'ctrlKey'` 看 `Ctrl+E` 的实现（注意它挂在 `document` 上）。方向键导航用了 `navIdx`  
-记录"上一次跳转目标"，这样连续按方向键不会原地踏步 —— 转场还没落地就再按，  
-否则会从同一个 `renderedIdx` 重新计算而卡住。
+除了快捷键，**雷达图上的标签本身就能点**：上半是维度名，下半是分数，各自点击就地编辑。
+判定逻辑见下方「就地编辑」。搜 `'ctrlKey'` 看 `Ctrl+E` 的实现（注意它挂在 `document` 上）。
+方向键导航用了 `navIdx` 记录"上一次跳转目标"，这样连续按方向键不会原地踏步 ——
+转场还没落地就再按，否则会从同一个 `renderedIdx` 重新计算而卡住。
 
 ### 关键函数
 
-| 函数                            | 位置    | 作用                     |
-| ----------------------------- | ----- | ---------------------- |
-| `switchToBand(band, isFirst)` | ~3058 | 普通条目切换（含过场动画编排）        |
-| `switchToBandBest(band)`      | ~3252 | BEST 转场                |
-| `applyScoreChange`            | ~2504 | 应用单个维度的分数修改            |
-| `commitScoreEdit`             | ~2494 | 分数编辑提交（重算排名 + 重算 BEST） |
-| `renderRulesPanel()`          | ~4297 | 生成开场规则页的维度明细           |
+| 函数 | 位置 | 作用 |
+|---|---|---|
+| `switchToBand(band, isFirst)` | ~3185 | 普通条目切换（含过场动画编排） |
+| `switchToBandBest(band)` | ~3379 | BEST 转场 |
+| `applyScoreChange` | ~2535 | 应用单个维度的分数修改 |
+| `applyDimNameChange` | ~2602 | 应用维度名修改（同步规则页与面板） |
+| `commitScoreEdit` | ~2525 | 分数编辑提交（重算排名 + 重算 BEST） |
+| `renderRulesMeta()` | ~4452 | 生成开场规则页（左图标签 + 右侧明细），可重复调用 |
+
+### 就地编辑：雷达图标签的两层
+
+雷达图上每个维度的标签被拆成上下两个可点区域：**上半是维度名（点击改名）**，**下半是分数（点击改分）**。
+
+搜 `hitTestRadarLabel`。绘制时把命中框和分界线一起记下来：
+
+```js
+radarScoreHits[i] = { x, y, w, h, nameBottom: y - 6 };
+```
+
+判定时用 `pt.y <= box.nameBottom` 决定点中的是哪一层，返回 `{ dim, kind }`。
+
+两者共用同一个原地输入框（`openRadarInlineEditor(dim, kind)`），`kind` 为 `'score'` 或 `'name'`，
+只有 `type`、取值来源和提交回调不同：
+
+- 分数 → `type="number"`，取 `band.points[dim]`，提交走 `applyScoreChange`
+- 维度名 → `type="text"`，取 `dimNames[dim]`，提交走 `applyDimNameChange`
+
+交互完全一致：Enter 或失焦保存，Esc 取消。样式上名字输入框多挂一个 `.radar-name-input`
+覆盖斜体数字字体，边框也从虚线改实线，让两种编辑状态一眼能分辨。
+
+**改维度名要连带更新三处**，这是 `applyDimNameChange` 的职责：
+
+| 位置 | 更新方式 |
+|---|---|
+| 雷达图标签 | 每帧读 `dimNames[i]`，自动跟随，无需额外处理 |
+| 开场规则页 | 调 `renderRulesMeta()` 全量重建（SVG 标签 + 右侧明细） |
+| 六维面板 | 面板可见时调 `renderScoreEditor()` 重建 |
+
+⚠️ `renderRulesMeta` 原本是只跑一次的 IIFE，为了让改名能同步，已改成可重复调用的函数。
+两个 `<g>` 容器本身是空的（`fill`/`stroke`/`font` 都挂在元素上），所以 `replaceChildren()`
+不会丢样式 —— 改造时确认过这一点。
+
+**只改名，不改含义**：`dimDescriptions`（每个维度的解释文案）不跟着变。那是"这个维度在
+衡量什么"的静态说明，属于要写进代码的内容。
 
 ---
 
@@ -562,8 +611,8 @@ Object.keys(localStorage).filter(k => k.startsWith('radarChart_')).forEach(k => 
 - **导出静态视频**：现在是 DOM + Canvas 混合渲染，要录成视频得把 canvas 换成离屏渲染，或者用 `MediaRecorder` 抓 canvas 流
 - **换配色方案**：`themePalette` 支持 20 色，改成一个完整色板即可；CSS 变量 `--theme-color` 等控制主题
 - **加第 7 个维度**：⚠️ 不是只改数组就行。`dimNames` / `dimDescriptions` / `rankingWeightPercent` / 每条 `points` / `rankingWeights` 都要改，而且**有两处硬编码的 60°** 必须一起改：
-  - 主体雷达图 `const ang = (i * 60 - 90) * Math.PI / 180;`（约 1991 行）
-  - 规则页示意图 `const angle = (index * 60 - 90) * Math.PI / 180;`（约 4274 行）
+  - 主体雷达图 `const ang = (i * 60 - 90) * Math.PI / 180;`（约 2005 行）
+  - 规则页示意图 `const angle = (index * 60 - 90) * Math.PI / 180;`（约 4443 行）
   建议改成 `const step = Math.PI * 2 / dimCount;` 再统一用 `step`，这样加维度不用再动别处。标签位置那段还有 `index === 0 || index === 3`、`index === 1 || index === 2` 这类硬编码方位判断，也要一起重构。
 - **照片改存 IndexedDB**：localStorage 只有约 5MB 且是同步 API。要放大量原图就换 IndexedDB（容量按磁盘配额，异步不阻塞主线程）。当前 JPEG 方案在 20 张规模下够用，再大就该换。
 - **接后端**：目前完全靠 localStorage，换成 fetch 只需替换 `loadFromStorage` / `saveToStorage`

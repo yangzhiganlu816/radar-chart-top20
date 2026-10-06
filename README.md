@@ -35,7 +35,7 @@ python -m http.server 8000
 | 想改什么 | 搜这个 | 注意 |
 |---|---|---|
 | 条目名字和分数 | `singersRawOrder` | **改完记得改 `DATA_VERSION`**，见下方提醒 |
-| 维度名称 | `dimNames` | 顺序要和 `points` 对应 |
+| 维度名称 | `dimNames` | 顺序要和 `points` 对应；也可以直接在页面上点着改，见下 |
 | 维度说明文案 | `dimDescriptions` | 顺序同上 |
 | 各维度权重 | `rankingWeightPercent` | 总和必须为 100 |
 | 主题配色 | `themePalette` | 按顺序取色，改名增删都不会错位 |
@@ -44,6 +44,14 @@ python -m http.server 8000
 | 雷达图刻度上限 | `RADAR_MAX_SCORE` | 默认 10 |
 
 > ⚠️ **最容易踩的坑**：在代码里改了初始数据后，必须同时改 `DATA_VERSION`。页面启动时会比对版本号，不一致就清掉浏览器里的旧数据。不改的话，你改的数据会被用户本地的旧分数盖掉。
+
+### 维度名可以直接点着改
+
+不用碰代码。雷达图上每个维度的标签分两层：**上半是维度名，下半是分数**，各自点击就能就地编辑，交互和改分数完全一致 —— Enter 或点别处保存，Esc 取消。
+
+鼠标移上去会变成指针并加下划线，提示这一层可以点。改完之后三个地方一起更新：雷达图标签、开场规则页、`Ctrl+E` 六维面板。改动存在浏览器里，刷新不丢；点「↺ 重置全部」回到初始值。
+
+有一点要注意：**只改名字，不改含义**。每个维度下方那句解释（`dimDescriptions`）不会跟着变 —— 那是"这个维度在衡量什么"的说明，要改还是得动代码。
 
 ### 配图靠文件名匹配
 
@@ -114,6 +122,7 @@ base64 数据一次性转成 blob URL，配合预解码和 LRU 缓存，再靠�
 | key | 内容 |
 |---|---|
 | `radarChart_points` | 各条目分数 |
+| `radarChart_dimNames` | 自定义的维度名 |
 | `radarChart_honors` | 各条目成就文案 |
 | `radarChart_achievements` | 可编辑成就 |
 | `radarChart_portraits` | 条目卡片照片 |
