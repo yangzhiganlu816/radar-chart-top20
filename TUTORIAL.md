@@ -10,11 +10,11 @@
 
 整个应用是**一个 HTML 文件里的三段独立 `<script>`**：
 
-| script | 作用 |
-|---|---|
+| script       | 作用                                        |
+| ------------ | ----------------------------------------- |
 | #1（约 2700 行） | 核心：数据、状态机、渲染、动画。包在一个 IIFE 里，**不暴露任何全局变量** |
-| #2（34 行） | 人脸定位钩子（当前是空实现，见 §9） |
-| #3（约 330 行） | 照片/模板自定义面板的 UI 逻辑 |
+| #2（34 行）     | 人脸定位钩子（当前是空实现，见 §9）                       |
+| #3（约 330 行）  | 照片/模板自定义面板的 UI 逻辑                         |
 
 页面 DOM 大部分在 HTML 里静态写死，JS 负责填内容和驱动动画。
 
@@ -164,7 +164,7 @@ const themePalette = [
 
 ### 5.4 默认文案
 
-搜 `achievementDefaults`（约 1729 行）—— 三组成就文案（综合荣誉 / 代表作 / 数据亮点），按索引取。
+搜 `achievementDefaults`（约 1729 行）—— 三组成就文案（综合荣誉 / 代表作 / 数据亮点），按索引取。  
 搜 `albumTexts` / `mvpTexts`（约 2979 / 2985 行）—— 成绩标签的两个短句。
 
 ---
@@ -181,15 +181,15 @@ const LS_KEY_PTS  = 'radarChart_points';
 const LS_KEY_HON  = 'radarChart_honors';
 ```
 
-| key | 存什么 |
-|---|---|
-| `radarChart_points` | 每个条目的 6 个分数 |
-| `radarChart_honors` | 每个条目的成就文案 |
-| `radarChart_achievements` | 三组可编辑成就 |
-| `radarChart_portraits` | 条目卡片照片 |
-| `radarChart_best_photos` | BEST 转场照片 |
-| `radarChart_best_backgrounds` | BEST 背景图 |
-| `radarChart_version` | 数据版本号 |
+| key                           | 存什么         |
+| ----------------------------- | ----------- |
+| `radarChart_points`           | 每个条目的 6 个分数 |
+| `radarChart_honors`           | 每个条目的成就文案   |
+| `radarChart_achievements`     | 三组可编辑成就     |
+| `radarChart_portraits`        | 条目卡片照片      |
+| `radarChart_best_photos`      | BEST 转场照片   |
+| `radarChart_best_backgrounds` | BEST 背景图    |
+| `radarChart_version`          | 数据版本号       |
 
 **关键机制**（搜 `checkVersion`）：启动时对比 `DATA_VERSION`，不一致就清空所有用户数据。所以 ——
 
@@ -235,11 +235,11 @@ function isBestInDim(singerName, dimIdx) {
 
 `globalMax` 有三处赋值，时机都正确：
 
-| 位置 | 时机 | 数据源 |
-|---|---|---|
-| 1719 | 启动初始化 | `singersRawOrder`（源数据） |
-| 1870 | `loadFromStorage()` **之后** | `singersRaw`（含用户编辑） |
-| 2517 | `commitScoreEdit()` 里 | 重新 `getMaxScoreInDim` |
+| 位置   | 时机                         | 数据源                    |
+| ---- | -------------------------- | ---------------------- |
+| 1719 | 启动初始化                      | `singersRawOrder`（源数据） |
+| 1870 | `loadFromStorage()` **之后** | `singersRaw`（含用户编辑）    |
+| 2517 | `commitScoreEdit()` 里      | 重新 `getMaxScoreInDim`  |
 
 所以**用户改分数后 BEST 会跟着变**，不需要手动重算。如果你发现 BEST 不跟着分数变，八成是这三处之一被挪动或删掉了。
 
@@ -299,11 +299,11 @@ const idle = window.requestIdleCallback
 
 实测数据（同样内容、720×720）：
 
-| 编码 | 单张 | 20 张合计 |
-|---|---|---|
-| PNG | 814 KB | 16.3 MB ❌ |
+| 编码            | 单张        | 20 张合计        |
+| ------------- | --------- | ------------- |
+| PNG           | 814 KB    | 16.3 MB ❌     |
 | **JPEG 0.92** | **93 KB** | **1.86 MB** ✅ |
-| JPEG 0.88 | 76 KB | 1.52 MB ✅ |
+| JPEG 0.88     | 76 KB     | 1.52 MB ✅     |
 
 需要无损时走「下载 PNG」按钮（`preview.toBlob`），那条路径不受影响。
 
@@ -372,28 +372,28 @@ delete artistImg.dataset.cropFocus;      // 恢复居中
 
 ### 快捷键
 
-| 键 | 作用 |
-|---|---|
-| `Ctrl+E` | 开/关六维分数编辑面板 |
+| 键              | 作用              |
+| -------------- | --------------- |
+| `Ctrl+E`       | 开/关六维分数编辑面板     |
 | `Ctrl+Shift+P` | 切换展示模式（见 §11.1） |
-| `←` / `→` | 上一条 / 下一条 |
-| `空格` | 暂停 / 继续 |
-| `Enter` | 确认编辑（编辑分数或文案时） |
-| `Esc` | 取消编辑，恢复原值 |
+| `←` / `→`      | 上一条 / 下一条       |
+| `空格`           | 暂停 / 继续         |
+| `Enter`        | 确认编辑（编辑分数或文案时）  |
+| `Esc`          | 取消编辑，恢复原值       |
 
-搜 `'ctrlKey'` 看 `Ctrl+E` 的实现（注意它挂在 `document` 上）。方向键导航用了 `navIdx`
-记录"上一次跳转目标"，这样连续按方向键不会原地踏步 —— 转场还没落地就再按，
+搜 `'ctrlKey'` 看 `Ctrl+E` 的实现（注意它挂在 `document` 上）。方向键导航用了 `navIdx`  
+记录"上一次跳转目标"，这样连续按方向键不会原地踏步 —— 转场还没落地就再按，  
 否则会从同一个 `renderedIdx` 重新计算而卡住。
 
 ### 关键函数
 
-| 函数 | 位置 | 作用 |
-|---|---|---|
-| `switchToBand(band, isFirst)` | ~3058 | 普通条目切换（含过场动画编排） |
-| `switchToBandBest(band)` | ~3252 | BEST 转场 |
-| `applyScoreChange` | ~2504 | 应用单个维度的分数修改 |
-| `commitScoreEdit` | ~2494 | 分数编辑提交（重算排名 + 重算 BEST） |
-| `renderRulesPanel()` | ~4297 | 生成开场规则页的维度明细 |
+| 函数                            | 位置    | 作用                     |
+| ----------------------------- | ----- | ---------------------- |
+| `switchToBand(band, isFirst)` | ~3058 | 普通条目切换（含过场动画编排）        |
+| `switchToBandBest(band)`      | ~3252 | BEST 转场                |
+| `applyScoreChange`            | ~2504 | 应用单个维度的分数修改            |
+| `commitScoreEdit`             | ~2494 | 分数编辑提交（重算排名 + 重算 BEST） |
+| `renderRulesPanel()`          | ~4297 | 生成开场规则页的维度明细           |
 
 ---
 
@@ -401,39 +401,40 @@ delete artistImg.dataset.cropFocus;      // 恢复居中
 
 页面里有几个带语义 id 的 `<style>`，控制启动行为：
 
-| style id | 作用 |
-|---|---|
-| `skip-intro-overlay` | **跳过开屏动画，直接落地规则页**（默认开启） |
-| `hide-model-strip` | 隐藏开屏的署名条（想显示就删掉这条） |
-| `wide-screen-tuning` | 宽屏布局微调，仅 ≥900px 生效 |
-| `ranking-rules-style` | 规则页样式 |
-| `portrait-tool-style` | 照片面板样式 |
-| `template-custom-style` | 自定义面板样式 |
-| `presentation-mode-style` | 展示模式（见 §11.1） |
+| style id                  | 作用                       |
+| ------------------------- | ------------------------ |
+| `skip-intro-overlay`      | **跳过开屏动画，直接落地规则页**（默认开启） |
+| `hide-model-strip`        | 隐藏开屏的署名条（想显示就删掉这条）       |
+| `wide-screen-tuning`      | 宽屏布局微调，仅 ≥900px 生效       |
+| `ranking-rules-style`     | 规则页样式                    |
+| `portrait-tool-style`     | 照片面板样式                   |
+| `template-custom-style`   | 自定义面板样式                  |
+| `presentation-mode-style` | 展示模式（见 §11.1）            |
+
 
 ### 启动行为怎么改
 
-**开屏动画（`#startOverlay`）在 JS 层是完整的** —— 点击后 `cover.classList.add('hide')` 淡出。
+**开屏动画（`#startOverlay`）在 JS 层是完整的** —— 点击后 `cover.classList.add('hide')` 淡出。  
 它只是被 `skip-intro-overlay` 用 `display:none !important` 藏起来了。
 
 引导流程的起点由**开屏页当前是否真的可见**决定（搜 `introCoverVisible`），不是写死的。所以：
 
-| 想要的效果 | 怎么做 |
-|---|---|
-| **恢复开屏动画**（开屏 → 规则页 → 榜单） | 删掉 `skip-intro-overlay` 整个 style 块，其它都不用动 |
-| **直接进榜单**（跳过一切引导） | 把 JS 里的 `AUTO_START` 改成 `true`（搜 `AUTO_START`） |
+| 想要的效果                     | 怎么做                                            |
+| ------------------------- | ---------------------------------------------- |
+| **恢复开屏动画**（开屏 → 规则页 → 榜单） | 删掉 `skip-intro-overlay` 整个 style 块，其它都不用动      |
+| **直接进榜单**（跳过一切引导）         | 把 JS 里的 `AUTO_START` 改成 `true`（搜 `AUTO_START`） |
 
-⚠️ **不要**只加 `#rankingRulesOverlay{display:none!important}` 来试图"直接进榜单"——
-`skip-intro-overlay` 已经把开屏藏了，再把规则页藏掉就**两个 overlay 都不见了**：
-用户看到的是空壳页面，`bandName` 为空，播放根本没开始（实测确认）。
+⚠️ **不要**只加 `#rankingRulesOverlay{display:none!important}` 来试图"直接进榜单"——  
+`skip-intro-overlay` 已经把开屏藏了，再把规则页藏掉就**两个 overlay 都不见了**：  
+用户看到的是空壳页面，`bandName` 为空，播放根本没开始（实测确认）。  
 用 `AUTO_START` 才是可靠做法，它会自己 `introductionStage = 'ranking'` 然后调用 `start()`。
 
-另外 `#startOverlay .model-strip` 那条 CSS 原本挂的是第三方图标，现在内容已换成
+另外 `#startOverlay .model-strip` 那条 CSS 原本挂的是第三方图标，现在内容已换成  
 「单文件 · 零依赖 / 离线可用 / 数据本地存储」的静态文字，`hide-model-strip` 会把它一起藏掉。
 
 ### 11.1 展示模式
 
-给录屏 / 投屏 / 现场演示用。**实现上刻意做得很轻** —— 只往 `body` 加一个 class，
+给录屏 / 投屏 / 现场演示用。**实现上刻意做得很轻** —— 只往 `body` 加一个 class，  
 不碰任何渲染或数据逻辑，所以不可能影响榜单本身。
 
 搜 `presentation-mode-style` 看 CSS，搜 `radarChart_presentMode` 看 JS。
@@ -470,15 +471,14 @@ window.addEventListener('keydown', event => {
 }, true);
 ```
 
-页面本身监听空格 / 方向键做播放控制。组合键必须阻止冒泡，否则可能顺带触发它们。
-顺带一提：分数面板的 `Ctrl+E` 监听挂在 `document` 上，而展示模式挂在 `window` 上 ——
+页面本身监听空格 / 方向键做播放控制。组合键必须阻止冒泡，否则可能顺带触发它们。  
+顺带一提：分数面板的 `Ctrl+E` 监听挂在 `document` 上，而展示模式挂在 `window` 上 ——  
 **自动化测试时注意派发目标**，往 `window` 派发 `Ctrl+E` 是不会触发的（踩过这个坑）。
 
 **2. 进展示模式时收掉已打开的面板**
 
-否则会出现"面板看不见但还开着、并且还在占用键盘焦点"的状态。
+否则会出现"面板看不见但还开着、并且还在占用键盘焦点"的状态。  
 实现是点一下 `#pt-close`（让照片面板走它自己的关闭流程），自定义面板直接设 `hidden = true`。
-
 
 ---
 
@@ -511,34 +511,34 @@ Object.keys(localStorage).filter(k => k.startsWith('radarChart_')).forEach(k => 
 
 ## 13. 常见坑
 
-**1. 改了初始数据但用户看到旧数据**
+**1. 改了初始数据但用户看到旧数据**  
 → bump `DATA_VERSION`。这是 `checkVersion` 的机制。
 
-**2. 增删条目后维度对不上**
+**2. 增删条目后维度对不上**  
 → `points` 数量必须等于 `dimNames.length`。
 
-**3. 新增异步图片操作后快速切换会错位**
+**3. 新增异步图片操作后快速切换会错位**  
 → 用 token 守卫，参考 8.4。
 
-**4. 权重改了但排名没变**
+**4. 权重改了但排名没变**  
 → 检查 `rankingWeightPercent` 总和是否为 100。
 
-**5. 规则页维度名和雷达图标签不一致**
+**5. 规则页维度名和雷达图标签不一致**  
 → 不该发生（已经同源生成）。如果真出现，检查是不是有人手改了生成的 DOM。
 
-**6. 照片配不上**
+**6. 照片配不上**  
 → 文件名必须等于条目名（去扩展名、去空格后精确或模糊匹配）。`项目1.jpg` 可以，`项目一.jpg` 不行。
 
-**7. 照片"存了但刷新就没了"**
-→ 几乎肯定是 localStorage 配额溢出（上限约 4.8MB）。检查有没有 `catch {}` 把
-`QuotaExceededError` 吞掉了 —— 内存里的对象已经改了，所以画面看起来正常，
+**7. 照片"存了但刷新就没了"**  
+→ 几乎肯定是 localStorage 配额溢出（上限约 4.8MB）。检查有没有 `catch {}` 把  
+`QuotaExceededError` 吞掉了 —— 内存里的对象已经改了，所以画面看起来正常，  
 但持久化其实失败。正确做法见 §8.6：`persistJSON` 返回结果，UI 明确提示。
 
-**8. 往 `window` 派发 `KeyboardEvent` 测不出 `Ctrl+E`**
-→ `Ctrl+E` 的监听挂在 `document` 上，而展示模式的挂在 `window` 上。
+**8. 往 `window` 派发 `KeyboardEvent` 测不出 `Ctrl+E`**  
+→ `Ctrl+E` 的监听挂在 `document` 上，而展示模式的挂在 `window` 上。  
 写自动化测试时派发目标别搞错：`Ctrl+E` 要 `document.dispatchEvent(...)`。
 
-**9. 把两个 overlay 都 `display:none` 后页面空白**
+**9. 把两个 overlay 都 `display:none` 后页面空白**  
 → 引导流程需要一个起点。要"直接进榜单"请用 `AUTO_START`，别手动藏 DOM（见 §11）。
 
 ---
@@ -550,7 +550,6 @@ Object.keys(localStorage).filter(k => k.startsWith('radarChart_')).forEach(k => 
 - **加第 7 个维度**：⚠️ 不是只改数组就行。`dimNames` / `dimDescriptions` / `rankingWeightPercent` / 每条 `points` / `rankingWeights` 都要改，而且**有两处硬编码的 60°** 必须一起改：
   - 主体雷达图 `const ang = (i * 60 - 90) * Math.PI / 180;`（约 1991 行）
   - 规则页示意图 `const angle = (index * 60 - 90) * Math.PI / 180;`（约 4274 行）
-
   建议改成 `const step = Math.PI * 2 / dimCount;` 再统一用 `step`，这样加维度不用再动别处。标签位置那段还有 `index === 0 || index === 3`、`index === 1 || index === 2` 这类硬编码方位判断，也要一起重构。
 - **照片改存 IndexedDB**：localStorage 只有约 5MB 且是同步 API。要放大量原图就换 IndexedDB（容量按磁盘配额，异步不阻塞主线程）。当前 JPEG 方案在 20 张规模下够用，再大就该换。
 - **接后端**：目前完全靠 localStorage，换成 fetch 只需替换 `loadFromStorage` / `saveToStorage`
