@@ -291,6 +291,36 @@ const idle = window.requestIdleCallback
 
 文件名去扩展名去空格后与条目名匹配。精确匹配优先，失败则去空格做模糊匹配（兼容中英文差异）。所以 `项目1.jpg` 和 `项目1 .jpg` 都能配给「项目1」。
 
+### 8.6 存储编码与配额（踩过的坑）
+
+**裁剪结果存 JPEG，不存 PNG。** 搜 `CROP_MIME` / `encodeCrop`。
+
+原因：localStorage 配额实测约 **4.8MB**（约 5.24M 字符，Chrome 按字符计）。720×720 的 PNG 单张可达 800KB，**20 张需要 16MB，必然溢出**。实测第 8 张就开始写不进去。改成 JPEG(0.92) 后单张约 90KB，20 张约 1.9MB。
+
+实测数据（同样内容、720×720）：
+
+| 编码 | 单张 | 20 张合计 |
+|---|---|---|
+| PNG | 814 KB | 16.3 MB ❌ |
+| **JPEG 0.92** | **93 KB** | **1.86 MB** ✅ |
+| JPEG 0.88 | 76 KB | 1.52 MB ✅ |
+
+需要无损时走「下载 PNG」按钮（`preview.toBlob`），那条路径不受影响。
+
+**写入失败必须报出来。** 搜 `persistJSON`。
+
+原来的实现是：
+
+```js
+try { localStorage.setItem('radarChart_portraits', JSON.stringify(localPhotoMap)); } catch (_) {}
+```
+
+问题：`QuotaExceededError` 被静默吞掉。而 `localPhotoMap` 是内存对象、**已经改了**，所以当前画面看起来完全正常，状态栏也显示「已保存」—— 但刷新后照片消失。用户永远不知道发生了什么。
+
+现在 `persistJSON` 返回 `{ ok, reason }`，桥接层的 `applyPortrait` / `applyBestPhoto` / `applyBackground` 都把它透传出来，照片面板用 `storageWarning()` 转成状态栏文案。
+
+**用量口径别算错。** 搜 `storageUsageMB`。Chrome 的配额以**字符**计（约 5.24M 字符 ≈ 5MB）。如果按 UTF-16 每字符 2 字节折算，会得到「已用 10MB > 上限 5MB」这种自相矛盾的数字。所以直接 `chars / 1024 / 1024`。
+
 ---
 
 ## 9. 可选增强：人脸定位
@@ -345,12 +375,15 @@ delete artistImg.dataset.cropFocus;      // 恢复居中
 | 键 | 作用 |
 |---|---|
 | `Ctrl+E` | 开/关六维分数编辑面板 |
+| `Ctrl+Shift+P` | 切换展示模式（见 §11.1） |
 | `←` / `→` | 上一条 / 下一条 |
 | `空格` | 暂停 / 继续 |
 | `Enter` | 确认编辑（编辑分数或文案时） |
 | `Esc` | 取消编辑，恢复原值 |
 
-搜 `'ctrlKey'` 看 `Ctrl+E` 的实现。注意方向键导航用了 `navIdx` 记录"上一次跳转目标"，这样连续按方向键不会原地踏步（转场还没落地就再按，会从同一个 `renderedIdx` 重新计算）。
+搜 `'ctrlKey'` 看 `Ctrl+E` 的实现（注意它挂在 `document` 上）。方向键导航用了 `navIdx`
+记录"上一次跳转目标"，这样连续按方向键不会原地踏步 —— 转场还没落地就再按，
+否则会从同一个 `renderedIdx` 重新计算而卡住。
 
 ### 关键函数
 
@@ -372,25 +405,80 @@ delete artistImg.dataset.cropFocus;      // 恢复居中
 |---|---|
 | `skip-intro-overlay` | **跳过开屏动画，直接落地规则页**（默认开启） |
 | `hide-model-strip` | 隐藏开屏的署名条（想显示就删掉这条） |
-| `presentation-tuning` | 录屏/展示模式微调，仅宽屏生效 |
+| `wide-screen-tuning` | 宽屏布局微调，仅 ≥900px 生效 |
 | `ranking-rules-style` | 规则页样式 |
 | `portrait-tool-style` | 照片面板样式 |
 | `template-custom-style` | 自定义面板样式 |
+| `presentation-mode-style` | 展示模式（见 §11.1） |
 
 ### 启动行为怎么改
 
 **开屏动画（`#startOverlay`）在 JS 层是完整的** —— 点击后 `cover.classList.add('hide')` 淡出。
 它只是被 `skip-intro-overlay` 用 `display:none !important` 藏起来了。
 
+引导流程的起点由**开屏页当前是否真的可见**决定（搜 `introCoverVisible`），不是写死的。所以：
+
 | 想要的效果 | 怎么做 |
 |---|---|
-| **恢复开屏动画**（点一下才进榜单） | 删掉 `skip-intro-overlay` 整个 style 块 |
-| **直接进榜单**（不要规则页也不要开屏） | 保留 `skip-intro-overlay`，再加 `#rankingRulesOverlay{display:none!important}` |
+| **恢复开屏动画**（开屏 → 规则页 → 榜单） | 删掉 `skip-intro-overlay` 整个 style 块，其它都不用动 |
+| **直接进榜单**（跳过一切引导） | 把 JS 里的 `AUTO_START` 改成 `true`（搜 `AUTO_START`） |
 
-注意这两者是**独立的**：`skip-intro-overlay` 同时做了「藏开屏」和「显示规则页」两件事。
+⚠️ **不要**只加 `#rankingRulesOverlay{display:none!important}` 来试图"直接进榜单"——
+`skip-intro-overlay` 已经把开屏藏了，再把规则页藏掉就**两个 overlay 都不见了**：
+用户看到的是空壳页面，`bandName` 为空，播放根本没开始（实测确认）。
+用 `AUTO_START` 才是可靠做法，它会自己 `introductionStage = 'ranking'` 然后调用 `start()`。
 
 另外 `#startOverlay .model-strip` 那条 CSS 原本挂的是第三方图标，现在内容已换成
 「单文件 · 零依赖 / 离线可用 / 数据本地存储」的静态文字，`hide-model-strip` 会把它一起藏掉。
+
+### 11.1 展示模式
+
+给录屏 / 投屏 / 现场演示用。**实现上刻意做得很轻** —— 只往 `body` 加一个 class，
+不碰任何渲染或数据逻辑，所以不可能影响榜单本身。
+
+搜 `presentation-mode-style` 看 CSS，搜 `radarChart_presentMode` 看 JS。
+
+```css
+body.present-mode #template-custom-toggle,
+body.present-mode #portrait-tool-toggle,
+body.present-mode #template-custom,
+body.present-mode #portrait-tool,
+body.present-mode #photoLoaderToggle,
+body.present-mode #localPhotoBar { display: none !important; }
+body.present-mode #editHint { display: none !important; }   /* 编辑器提示，想保留就删这条 */
+```
+
+开关逻辑（文件末尾独立 `<script>`）：
+
+- 优先级：**URL 参数 > localStorage 记忆**
+  - `?present=1` / `#present` → 强制开
+  - `?present=0` → 强制关
+  - 都没给 → 读 `radarChart_presentMode`
+- `Ctrl+Shift+P` 切换，写入 localStorage
+
+两个实现细节值得注意：
+
+**1. 快捷键监听用捕获阶段 + `stopPropagation`**
+
+```js
+window.addEventListener('keydown', event => {
+    if (event.ctrlKey && event.shiftKey && (...KeyP...)) {
+        event.preventDefault();
+        event.stopPropagation();
+        apply(!on, true);
+    }
+}, true);
+```
+
+页面本身监听空格 / 方向键做播放控制。组合键必须阻止冒泡，否则可能顺带触发它们。
+顺带一提：分数面板的 `Ctrl+E` 监听挂在 `document` 上，而展示模式挂在 `window` 上 ——
+**自动化测试时注意派发目标**，往 `window` 派发 `Ctrl+E` 是不会触发的（踩过这个坑）。
+
+**2. 进展示模式时收掉已打开的面板**
+
+否则会出现"面板看不见但还开着、并且还在占用键盘焦点"的状态。
+实现是点一下 `#pt-close`（让照片面板走它自己的关闭流程），自定义面板直接设 `hidden = true`。
+
 
 ---
 
@@ -441,6 +529,18 @@ Object.keys(localStorage).filter(k => k.startsWith('radarChart_')).forEach(k => 
 **6. 照片配不上**
 → 文件名必须等于条目名（去扩展名、去空格后精确或模糊匹配）。`项目1.jpg` 可以，`项目一.jpg` 不行。
 
+**7. 照片"存了但刷新就没了"**
+→ 几乎肯定是 localStorage 配额溢出（上限约 4.8MB）。检查有没有 `catch {}` 把
+`QuotaExceededError` 吞掉了 —— 内存里的对象已经改了，所以画面看起来正常，
+但持久化其实失败。正确做法见 §8.6：`persistJSON` 返回结果，UI 明确提示。
+
+**8. 往 `window` 派发 `KeyboardEvent` 测不出 `Ctrl+E`**
+→ `Ctrl+E` 的监听挂在 `document` 上，而展示模式的挂在 `window` 上。
+写自动化测试时派发目标别搞错：`Ctrl+E` 要 `document.dispatchEvent(...)`。
+
+**9. 把两个 overlay 都 `display:none` 后页面空白**
+→ 引导流程需要一个起点。要"直接进榜单"请用 `AUTO_START`，别手动藏 DOM（见 §11）。
+
 ---
 
 ## 14. 二次开发方向
@@ -452,4 +552,5 @@ Object.keys(localStorage).filter(k => k.startsWith('radarChart_')).forEach(k => 
   - 规则页示意图 `const angle = (index * 60 - 90) * Math.PI / 180;`（约 4274 行）
 
   建议改成 `const step = Math.PI * 2 / dimCount;` 再统一用 `step`，这样加维度不用再动别处。标签位置那段还有 `index === 0 || index === 3`、`index === 1 || index === 2` 这类硬编码方位判断，也要一起重构。
+- **照片改存 IndexedDB**：localStorage 只有约 5MB 且是同步 API。要放大量原图就换 IndexedDB（容量按磁盘配额，异步不阻塞主线程）。当前 JPEG 方案在 20 张规模下够用，再大就该换。
 - **接后端**：目前完全靠 localStorage，换成 fetch 只需替换 `loadFromStorage` / `saveToStorage`

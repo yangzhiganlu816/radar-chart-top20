@@ -33,12 +33,15 @@ If your data can be expressed as "each entry has a score on each of N dimensions
 | Bottom | Global timeline, draggable to seek |
 | Top right | Session timer |
 | Hidden panels | Photo manager (📷 button), template customization panel ("自定义" button) |
+| Presentation mode | `Ctrl+Shift+P` hides all the above, leaving only the clean view; ranking stays fully functional |
 
 ## Core features
 
 **Editable data.** Scores and achievement text are editable in-page and persisted to localStorage. Score panel shortcut: `Ctrl+E`.
 
-**Photo setup.** Bulk-select a local folder; filenames (minus extension) are matched against entry names automatically. Individual upload, cropping, alignment, and PNG export are also supported.
+**Photo setup.** Bulk-select a local folder; filenames (minus extension) are matched against entry names automatically. Individual upload, cropping, alignment, and PNG export are also supported. Cropped results are stored as **JPEG** (~1/8 the size of PNG), and failures are reported explicitly rather than silently swallowed — if a write doesn't fit, you get actual usage plus what to do about it.
+
+**Presentation mode.** For recording, screen sharing, or live demos: one keystroke hides every management entry point and floating panel, leaving just the ranking. It works by adding a single class to `body` without touching any rendering logic, so the chart, animations, keyboard controls, timeline, and BEST transitions all keep working.
 
 **Automatic BEST detection.** When an entry holds the highest score in any dimension, it's marked BEST and triggers a dedicated transition. **Ties are all marked** — no arbitrary pick-one tie-breaking. Detection runs after the user's edit cache is loaded, so changing scores updates BEST immediately.
 
@@ -107,6 +110,7 @@ radar-chart-top20/
 │   └── rank.test.cjs  # Ranking / tie-breaking tests
 ├── LICENSE          # MIT
 ├── preview.png      # Screenshot
+├── preview-present-mode.png  # Presentation mode screenshot
 └── .gitignore
 ```
 

@@ -2879,6 +2879,50 @@
                 });
             }
 
+            // ---------- localStorage 写入 ----------
+            // 统一处理写入失败。浏览器配额只有约 5MB，照片数据很容易撑满。
+            // 早期实现用「catch {}」把 QuotaExceededError 静默吞掉，导致用户看到
+            // 「已保存」、当前画面也确实变了，但刷新后照片消失且毫无提示 ——
+            // 因为内存里的 localPhotoMap 改了，持久化却失败了。
+            // 现在统一返回 { ok, reason }，由调用方决定如何提示。
+            function persistJSON(key, value) {
+                try {
+                    localStorage.setItem(key, JSON.stringify(value));
+                    return { ok: true, reason: '' };
+                } catch (error) {
+                    const errName = error && error.name;
+                    const isQuota = errName === 'QuotaExceededError'
+                        || errName === 'NS_ERROR_DOM_QUOTA_REACHED'
+                        || (error && error.code === 22);
+                    return {
+                        ok: false,
+                        reason: isQuota ? 'quota' : String((error && error.message) || error || '未知错误')
+                    };
+                }
+            }
+            // 存储用量：按「字符数」折算 MB，和浏览器宣称的 5MB 配额同一口径。
+            // 注意不要乘 2 —— Chrome 的 localStorage 配额以字符计（约 5.24M 字符），
+            // 若按 UTF-16 字节折算会得到"已用 10MB > 上限 5MB"这种自相矛盾的数字。
+            function storageUsageMB() {
+                let chars = 0;
+                try {
+                    for (const key of Object.keys(localStorage)) {
+                        chars += (localStorage.getItem(key) || '').length + key.length;
+                    }
+                } catch (_) {}
+                return chars / 1024 / 1024;
+            }
+            // 把 persistJSON 的失败结果转成给用户看的话
+            function persistMessage(result, what) {
+                if (result.ok) return '';
+                if (result.reason === 'quota') {
+                    return '空间不足，' + what + '只改了当前画面、没有保存成功。'
+                        + '浏览器存储上限约 5MB，目前已用 ' + storageUsageMB().toFixed(1) + 'MB。'
+                        + '请先「下载 PNG」导出备份，再删掉部分照片后重试。';
+                }
+                return what + '保存失败：' + result.reason;
+            }
+
             // ===== BEST转场照片管理 =====
             const LS_KEY_BEST_PHOTO = 'radarChart_best_photos';
             try {
@@ -2902,11 +2946,9 @@
                     }
                 } catch(e) {}
             }
-            // 保存BEST转场照片到localStorage
+            // 保存BEST转场照片到localStorage（返回 { ok, reason }，供调用方提示用户）
             function saveBestPhotos() {
-                try {
-                    localStorage.setItem(LS_KEY_BEST_PHOTO, JSON.stringify(bestPhotoMap));
-                } catch(e) {}
+                return persistJSON(LS_KEY_BEST_PHOTO, bestPhotoMap);
             }
             // 获取歌手BEST转场照片URL
             function getBestPhotoUrl(name) {
@@ -4222,33 +4264,37 @@
                     const audio = document.getElementById('bgMusic');
                     if (audio) audio.pause();
                 },
-                applyPortrait(name, png) {
+                applyPortrait(name, image) {
                     const previous = localPhotoMap[name];
                     // 内容相同时不销毁旧资源，避免同一张裁剪图被两位歌手共用同一个 blob 地址时被误回收
-                    if (previous && previous !== png) {
+                    if (previous && previous !== image) {
                         if (previous.startsWith('blob:')) URL.revokeObjectURL(previous);
                         invalidateImageAsset(previous);
                     }
-                    localPhotoMap[name] = png;
-                    try { localStorage.setItem('radarChart_portraits', JSON.stringify(localPhotoMap)); } catch (_) {}
+                    localPhotoMap[name] = image;
+                    const saved = persistJSON('radarChart_portraits', localPhotoMap);
                     // 只刷新画面上正在展示的那位歌手，照片不会写到其他歌手的卡片上
                     if (bands[renderedIdx] && bands[renderedIdx].name === name) loadArtistPhoto(name);
+                    return saved;
                 },
                 restorePortrait(name) {
                     if (localPhotoMap[name]) invalidateImageAsset(localPhotoMap[name]);
                     delete localPhotoMap[name];
+                    let saved = { ok: true, reason: '' };
                     try {
-                        const saved = JSON.parse(localStorage.getItem('radarChart_portraits') || '{}');
-                        delete saved[name];
-                        localStorage.setItem('radarChart_portraits', JSON.stringify(saved));
+                        const raw = JSON.parse(localStorage.getItem('radarChart_portraits') || '{}');
+                        delete raw[name];
+                        saved = persistJSON('radarChart_portraits', raw);
                     } catch (_) {}
                     if (this.currentName() === name) loadArtistPhoto(name);
+                    return saved;
                 },
                 applyBestPhoto(name, image) {
                     if (!hasBestDim(name)) throw new Error('该条目没有 BEST 界面');
                     bestPhotoMap[name] = image;
-                    saveBestPhotos();
+                    const saved = saveBestPhotos();
                     if (currentBestSingerName === name || this.bestScreenName() === name) setBestPhoto(image);
+                    return saved;
                 },
                 // BEST 界面当前显示的图片（含回退到歌手照片），供裁剪模块单独修改 BEST 界面照片
                 bestPhoto(name) {
@@ -4269,20 +4315,24 @@
                     if (bestPhotoMap[name]) invalidateImageAsset(bestPhotoMap[name]);
                     if (BEST_PHOTO_DEFAULTS[name]) bestPhotoMap[name] = BEST_PHOTO_DEFAULTS[name];
                     else delete bestPhotoMap[name];
-                    saveBestPhotos();
+                    const saved = saveBestPhotos();
                     if (currentBestSingerName === name) setBestPhoto(this.bestPhoto(name));
+                    return saved;
                 },
                 applyBackground(name, image) {
                     if (!hasBestDim(name)) throw new Error('该条目没有 BEST 标记');
                     if (bestBackgrounds[name]) invalidateImageAsset(bestBackgrounds[name]);
                     bestBackgrounds[name] = image;
-                    try { localStorage.setItem('radarChart_best_backgrounds', JSON.stringify(bestBackgrounds)); } catch (_) {}
+                    const saved = persistJSON('radarChart_best_backgrounds', bestBackgrounds);
                     delete document.getElementById('bestTransitionOverlay').dataset.bgUrl;
                     if (this.currentName() === name) loadArtistPhoto(name);
                     if (currentBestSingerName === name) {
                         getBestPhotoUrl(name);
                     }
-                }
+                    return saved;
+                },
+                // 供照片面板显示"当前存储用量"，让用户在爆掉之前就有感知
+                storageUsageMB: () => storageUsageMB()
             };
 
             // 规则页沿用榜单画布坐标、网格半径、线宽、光晕与标签字体，只有刻度而没有歌手数据。
@@ -4353,8 +4403,8 @@
             requestAnimationFrame(tick);
         })();
     </script>
-<!-- 录屏/展示模式微调：仅在宽屏生效 -->
-<style id="presentation-tuning">
+<!-- 宽屏布局微调（只在 >=900px 生效）。注意这与「展示模式 present-mode」是两回事。 -->
+<style id="wide-screen-tuning">
     @media (min-width: 900px) {
         .main-layout { gap: 0; }
         .left-panel { padding: 12px; }
@@ -4453,6 +4503,49 @@
     #template-custom[hidden]{display:none} #template-custom label{display:block;margin:8px 0 4px;color:#bbb} #template-custom input{width:100%;padding:6px;background:#242424;border:1px solid #666;color:#fff;border-radius:4px} #template-custom button{margin-top:10px;padding:6px 9px;background:#303030;color:#fff;border:1px solid #666;border-radius:4px;cursor:pointer}
     #template-custom .template-custom-hint{margin:10px 0 0;padding-top:8px;border-top:1px solid #444;color:#999;font-size:12px;line-height:1.7}
     #template-custom .template-custom-hint code{background:#2a2a2a;padding:1px 4px;border-radius:3px;color:#d9c78e}
+</style>
+<!--
+    展示模式：给录屏 / 投屏 / 现场演示用。
+    开启方式（任选其一）：
+      1) 在网址后面加 ?present=1 或 #present
+      2) 按 Ctrl+Shift+P 临时切换（会记住选择）
+    开启后只隐藏「管理入口」和「浮动面板」，榜单本身、动画、键盘操作、
+    时间轴、BEST 转场等全部功能不受影响。
+-->
+<style id="presentation-mode-style">
+    /* 管理入口与浮动面板：展示时全部隐藏 */
+    body.present-mode #template-custom-toggle,
+    body.present-mode #portrait-tool-toggle,
+    body.present-mode #template-custom,
+    body.present-mode #portrait-tool,
+    body.present-mode #photoLoaderToggle,
+    body.present-mode #localPhotoBar {
+        display: none !important;
+    }
+    /* 「点击分数可直接编辑」这行提示同属编辑器 UI：展示时也藏掉。
+       如果你希望展示模式下仍然提示可编辑，删掉下面这条规则即可。 */
+    body.present-mode #editHint {
+        display: none !important;
+    }
+    /* 切换瞬间的角标提示：只做反馈，不拦截点击 */
+    #mode-toast {
+        position: fixed;
+        left: 50%;
+        bottom: 42px;
+        transform: translateX(-50%);
+        z-index: 100002;
+        padding: 8px 18px;
+        border-radius: 999px;
+        background: rgba(20, 20, 22, 0.88);
+        border: 1px solid rgba(212, 175, 55, 0.5);
+        color: #E7CF7A;
+        font: 13px/1.4 Inter, "Noto Sans SC", "Microsoft YaHei", sans-serif;
+        letter-spacing: 0.06em;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.35s ease;
+    }
+    #mode-toast.show { opacity: 1; }
 </style>
 <button id="template-custom-toggle" type="button">自定义</button>
 <section id="template-custom" hidden>
@@ -4562,7 +4655,7 @@
     const status = element('pt-status');
     const localFolderButton = element('pt-local-folder');
     let processing = false;
-    let png = '';
+    let cropData = '';
     let source = null;
     // 裁剪结果归属的歌手：填入目标只认它，绝不跟着下拉框漂移到其他歌手
     let cropOwner = '';
@@ -4584,6 +4677,18 @@
     const hasBest = name => bridge.singers.some(item => item.name === name && item.best);
     const typeLabel = kind => (kind === 'best' ? 'BEST 界面照片' : '歌手卡片照片');
     const typeOf = kind => (kind === 'best' ? '的 BEST 界面照片' : '的照片');
+    // 把桥接层返回的存储结果转成状态栏文案。
+    // 关键：写入失败时绝不能只显示「已保存」—— 那样用户以为存好了，刷新后照片却没了。
+    function storageWarning(result, what) {
+        if (!result || result.ok !== false) return '';
+        if (result.reason === 'quota') {
+            const used = typeof bridge.storageUsageMB === 'function' ? bridge.storageUsageMB().toFixed(1) : '?';
+            return '⚠️ 存储空间不足，' + what + '只在当前画面生效、没有保存。'
+                + '浏览器上限约 5MB，已用 ' + used + 'MB。'
+                + '请先用「下载 PNG」备份，再删掉部分照片后重试。';
+        }
+        return '⚠️ ' + what + '保存失败：' + result.reason;
+    }
     function syncSelection() {
         const name = selectedName();
         singer.options[0].textContent = bridge.currentName() ? '当前：' + bridge.currentName() : '当前条目（尚未开始）';
@@ -4592,8 +4697,8 @@
         // 填入/保存只对当前裁剪结果归属的歌手与照片类型生效，
         // 确保预览里的照片就是被填入的那一张（不会填到别的歌手或别的照片上）
         const targetOk = cropTarget !== 'best' || hasBest(cropOwner);
-        apply.disabled = processing || !png || !cropOwner || !targetOk;
-        save.disabled = processing || !png || !cropOwner || !targetOk;
+        apply.disabled = processing || !cropData || !cropOwner || !targetOk;
+        save.disabled = processing || !cropData || !cropOwner || !targetOk;
         restore.disabled = processing || !(cropOwner || name);
         photoLabel.textContent = typeLabel(target.value);
         apply.textContent = cropTarget === 'best' ? '填入 BEST 界面' : '填入歌手卡片';
@@ -4604,7 +4709,7 @@
         processing = value;
         panel.setAttribute('aria-busy', String(value));
         photo.disabled = value;
-        download.disabled = value || !png;
+        download.disabled = value || !cropData;
         syncSelection();
     }
     function openPanel(open) {
@@ -4631,7 +4736,7 @@
     async function syncCropBinding() {
         const name = selectedName();
         const kind = target.value;
-        if (png && (cropOwner !== name || cropTarget !== kind)) {
+        if (cropData && (cropOwner !== name || cropTarget !== kind)) {
             if (cropFromFile) {
                 cropOwner = name;
                 cropTarget = kind;
@@ -4685,16 +4790,24 @@
         target.getContext('2d').drawImage(image, box.sx, box.sy, box.cropSize, box.cropSize, 0, 0, 720, 720);
         return box;
     }
+    // 裁剪结果的存储编码：JPEG 而非 PNG。
+    // 720×720 的 PNG 单张可达 800KB，20 张就超过浏览器 localStorage 上限（实测约 4.8MB），
+    // 超出后写入会静默失败、刷新即丢。同尺寸 JPEG(0.92) 仅约 90KB，体积降为 1/8，
+    // 而照片本身没有透明通道，视觉上几乎无差别。
+    // 需要无损导出时仍走「下载 PNG」按钮，那条路径不受此设置影响。
+    const CROP_MIME = 'image/jpeg';
+    const CROP_QUALITY = 0.92;
+    const encodeCrop = canvas => canvas.toDataURL(CROP_MIME, CROP_QUALITY);
     function renderCrop() {
         if (!source) return;
         const box = renderSquare(source, Number(zoom.value), Number(panX.value), Number(panY.value), preview);
-        png = preview.toDataURL('image/png');
+        cropData = encodeCrop(preview);
         element('pt-size').textContent = (cropOwner ? '归属：' + cropOwner + (cropTarget === 'best' ? '（BEST 界面）' : '') + ' · ' : '') + Math.round(box.cropSize) + ' × ' + Math.round(box.cropSize);
         syncSelection();
     }
     // 清掉当前裁剪：预览、结果与归属一起清空，避免上一次的裁剪被填到其他歌手
     function resetCrop() {
-        source = null; png = ''; cropOwner = ''; cropFromFile = false; sourceToken++;
+        source = null; cropData = ''; cropOwner = ''; cropFromFile = false; sourceToken++;
         cropTarget = target.value;
         preview.width = 1; preview.height = 1;
         zoom.value = '1'; panX.value = '0'; panY.value = '0';
@@ -4779,33 +4892,33 @@
     });
     apply.addEventListener('click', () => {
         const name = cropOwner;
-        if (!png || !name || processing) return;
+        if (!cropData || !name || processing) return;
         try {
             if (cropTarget === 'best') {
                 if (!hasBest(name)) { status.textContent = '「' + name + '」没有 BEST 界面，无法填入。'; return; }
-                bridge.applyBestPhoto(name, png);
-                status.textContent = bridge.bestScreenActive() && bridge.bestScreenName() === name
+                const stored = bridge.applyBestPhoto(name, cropData);
+                status.textContent = storageWarning(stored, 'BEST 界面照片') || (bridge.bestScreenActive() && bridge.bestScreenName() === name
                     ? '已填入「' + name + '」的 BEST 界面照片，当前 BEST 画面已更新。'
-                    : '已填入「' + name + '」的 BEST 界面照片，切到该条目的 BEST 转场时显示。';
+                    : '已填入「' + name + '」的 BEST 界面照片，切到该条目的 BEST 转场时显示。');
                 return;
             }
-            bridge.applyPortrait(name, png);
-            status.textContent = bridge.currentName() === name
+            const stored = bridge.applyPortrait(name, cropData);
+            status.textContent = storageWarning(stored, '卡片照片') || (bridge.currentName() === name
                 ? '已填入「' + name + '」卡片，当前画面已更新。'
-                : '已填入「' + name + '」卡片，切到该条目时显示。';
+                : '已填入「' + name + '」卡片，切到该条目时显示。');
         } catch (error) { status.textContent = '照片填入失败：' + error.message; }
     });
     save.addEventListener('click', () => {
         const name = cropOwner;
-        if (!png || !name || processing) return;
+        if (!cropData || !name || processing) return;
         if (cropTarget === 'best') {
             if (!hasBest(name)) { status.textContent = '「' + name + '」没有 BEST 界面，无法保存。'; return; }
-            bridge.applyBestPhoto(name, png);
-            status.textContent = '已保存「' + name + '」的 BEST 界面照片。';
+            const stored = bridge.applyBestPhoto(name, cropData);
+            status.textContent = storageWarning(stored, 'BEST 界面照片') || '已保存「' + name + '」的 BEST 界面照片。';
             return;
         }
-        bridge.applyPortrait(name, png);
-        status.textContent = '已保存「' + name + '」的条目卡片照片。';
+        const stored = bridge.applyPortrait(name, cropData);
+        status.textContent = storageWarning(stored, '卡片照片') || '已保存「' + name + '」的条目卡片照片。';
     });
     restore.addEventListener('click', () => {
         // 与填入/保存同一位歌手、同一类照片：有裁剪结果时以裁剪归属为准，避免误改其他歌手
@@ -4814,15 +4927,15 @@
         if (cropTarget === 'best') {
             if (!hasBest(name)) { status.textContent = '「' + name + '」没有 BEST 界面。'; return; }
             if (!bridge.bestPhotoCustom(name)) { status.textContent = '「' + name + '」当前没有自定义 BEST 界面照片，无需恢复。'; return; }
-            bridge.restoreBestPhoto(name);
-            status.textContent = '已恢复「' + name + '」的默认 BEST 界面照片。';
+            const stored = bridge.restoreBestPhoto(name);
+            status.textContent = storageWarning(stored, '恢复结果') || '已恢复「' + name + '」的默认 BEST 界面照片。';
             return;
         }
-        bridge.restorePortrait(name);
-        status.textContent = '已恢复「' + name + '」的默认照片。';
+        const stored = bridge.restorePortrait(name);
+        status.textContent = storageWarning(stored, '恢复结果') || '已恢复「' + name + '」的默认照片。';
     });
     download.addEventListener('click', () => {
-        if (!png) return;
+        if (!cropData) return;
         const filename = (cropOwner || selectedName() || '歌手') + (cropTarget === 'best' ? '_BEST界面' : '') + '_照片.png';
         // Blob 下载避免较大 data URL 被浏览器截断；延迟回收保证下载读取完成。
         preview.toBlob(blob => {
@@ -4842,12 +4955,13 @@
         setBusy(true);
         try {
             const image = await decode(file, 2400);
-            // 背景图独立于歌手照片：不再占用裁剪状态（source/png/预览），
+            // 背景图独立于歌手照片：不再占用裁剪状态（source/cropData/预览），
             // 否则“填入歌手卡片”会把 BEST 背景当成裁剪结果填进去。
             const square = canvas(720, 720);
             renderSquare(image, Number(zoom.value), Number(panX.value), Number(panY.value), square);
-            bridge.applyBackground(name, square.toDataURL('image/png'));
-            status.textContent = '已更新「' + name + '」的 BEST 背景，本次会话内保留。';
+            const stored = bridge.applyBackground(name, encodeCrop(square));
+            status.textContent = storageWarning(stored, 'BEST 背景')
+                || '已更新「' + name + '」的 BEST 背景。';
         } catch (error) { status.textContent = '背景更新失败：' + error.message; }
         finally { background.value = ''; setBusy(false); }
     });
@@ -4861,12 +4975,78 @@
             const size = Math.min(image.width, image.height);
             const square = canvas(size, size);
             square.getContext('2d').drawImage(image, (image.width - size) / 2, (image.height - size) / 2, size, size, 0, 0, size, size);
-            bridge.applyBestPhoto(name, square.toDataURL('image/png'));
-            status.textContent = '已更新「' + name + '」的 BEST 界面照片。';
+            const stored = bridge.applyBestPhoto(name, encodeCrop(square));
+            status.textContent = storageWarning(stored, 'BEST 界面照片')
+                || '已更新「' + name + '」的 BEST 界面照片。';
         } catch (error) { status.textContent = 'BEST 照片更新失败：' + error.message; }
         finally { bestPhotoInput.value = ''; setBusy(false); }
     });
     syncSelection();
+})();
+</script>
+
+<script>
+// 展示模式：隐藏所有管理入口，方便录屏 / 投屏 / 现场演示。
+// 与其它功能完全解耦 —— 它只加/删 body 上的一个 class，不碰任何渲染或数据逻辑。
+(() => {
+    'use strict';
+    const LS_KEY = 'radarChart_presentMode';
+    const body = document.body;
+    const params = new URLSearchParams(location.search);
+    const raw = params.get('present');
+    const hashOn = /(^|[#&])present\b/.test(location.hash);
+    // 优先级：URL 参数 > 上次记住的选择
+    let on;
+    if (raw === '1' || raw === '' || hashOn) on = true;
+    else if (raw === '0') on = false;
+    else {
+        try { on = localStorage.getItem(LS_KEY) === '1'; } catch (_) { on = false; }
+    }
+
+    const toast = document.createElement('div');
+    toast.id = 'mode-toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    body.append(toast);
+    let toastTimer = 0;
+    function notify(text) {
+        toast.textContent = text;
+        toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    // 进入展示模式时，把已打开的管理面板收起来，避免"看不见却还开着"
+    function closeOpenPanels() {
+        const tool = document.getElementById('portrait-tool');
+        const closeBtn = document.getElementById('pt-close');
+        if (tool && !tool.hidden && closeBtn) closeBtn.click();
+        const custom = document.getElementById('template-custom');
+        if (custom && !custom.hidden) custom.hidden = true;
+    }
+
+    function apply(next, announce) {
+        on = next;
+        body.classList.toggle('present-mode', on);
+        if (on) closeOpenPanels();
+        try { localStorage.setItem(LS_KEY, on ? '1' : '0'); } catch (_) {}
+        if (announce) {
+            notify(on ? '展示模式已开启 · 按 Ctrl+Shift+P 退出' : '已退出展示模式');
+        }
+    }
+
+    // 捕获阶段拦截并阻止冒泡：页面本身监听空格 / 方向键做播放控制，
+    // 不能让这个组合键被它们顺带触发。
+    window.addEventListener('keydown', event => {
+        if (event.ctrlKey && event.shiftKey && (event.code === 'KeyP' || String(event.key).toLowerCase() === 'p')) {
+            event.preventDefault();
+            event.stopPropagation();
+            apply(!on, true);
+        }
+    }, true);
+
+    body.classList.toggle('present-mode', on);
+    if (on) closeOpenPanels();
 })();
 </script>
 

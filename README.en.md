@@ -55,19 +55,40 @@ The *displayed* total uses a separate three-segment linear mapping that stretche
 - `requestIdleCallback` progressive prefetching, so startup never blocks the main thread
 - Transition-token guards: switching mid-transition discards stale async results instead of rendering the wrong image
 
+### 🎬 Presentation mode (for recording / screen sharing)
+
+Hides every management entry point with one keystroke, leaving only the clean ranking view:
+
+- Hides the **customize button**, the **photo manager button**, both floating panels, and the "click to edit" hint
+- **The ranking itself is completely unaffected** — radar chart, animations, keyboard controls, timeline, and BEST transitions all keep working
+- Timeline and session timer stay visible (they're part of the ranking view)
+
+How to enable:
+
+| Method | Action |
+|---|---|
+| Shortcut | `Ctrl + Shift + P` to toggle (choice is remembered) |
+| URL parameter | Append `?present=1` or `#present` (handy for a recording shortcut) |
+| Force off | Append `?present=0` |
+
+![Presentation mode](preview-present-mode.png)
+
+> The screenshot above is in presentation mode — note the "自定义" button (top-left) and 📷 button (top-right) are gone.
+
 ### Everything else
 
 | Feature | Notes |
 |---|---|
 | **Single file** | HTML + CSS + JS in one file. Double-click to run. |
 | **Zero dependencies** | No framework, no CDN, no external requests. Works fully offline. |
-| **Automatic theme colors** | Assigned by order, so adjacent entries are always distinguishable. Adding/removing entries never collides colors. |
-| **Single source of truth** | Dimension list, radar labels, and score panel all generate from one config — change it once, it applies everywhere. |
+| **Automatic theme colors** | Assigned by order, so adjacent entries are always distinguishable. |
+| **Single source of truth** | Dimension list, radar labels, and score panel all generate from one config. |
 | **Editable data** | Scores and achievement text editable in-page, persisted to localStorage. |
 | **Photo setup** | Bulk-load a local folder (matched by filename), or upload/crop individually. |
-| **Tie display** | Equal scores are labeled as tied, with shared rankings (1, 2, 2, 4 style). |
+| **Tie display** | Equal scores share a placement using standard competition ranking (1, 2, 2, 4). |
 | **Global timeline** | Draggable progress bar; navigate with `←` `→`. |
 | **Keyboard-first** | `Ctrl+E` score panel, `Space` pause, `Enter` commit, `Esc` cancel. |
+| **Honest storage errors** | If photos can't be saved, you're told explicitly — it never fakes success. |
 
 ## Quick start
 
@@ -124,6 +145,7 @@ After editing the initial data in code, **you must also change `DATA_VERSION`** 
 | Key | Action |
 |---|---|
 | `Ctrl + E` | Toggle the 6-dimension score editor |
+| `Ctrl + Shift + P` | Toggle presentation mode |
 | `←` / `→` | Previous / next entry |
 | `Space` | Pause / resume |
 | `Enter` | Commit edit |
@@ -145,6 +167,15 @@ All in browser localStorage. **Nothing is uploaded anywhere.**
 | `radarChart_version` | Data version tag |
 
 Use the in-app 「↺ 重置全部」 button to clear. **Photos must be re-configured after switching browsers or clearing cache** — only the mapping is stored, not the image files.
+
+### About the storage limit
+
+Browsers cap localStorage at roughly **5MB**, which 20 photos can easily exhaust. Two things are done about it:
+
+1. **Cropped results are stored as JPEG (quality 0.92) rather than PNG** — a 720×720 image drops from ~800KB to ~90KB, so 20 of them total ~1.9MB and fit comfortably. (Use the "下载 PNG" button when you need a lossless export; that path is unaffected.)
+2. **Failures are reported, never hidden** — if a write doesn't fit, the status line says so and shows actual usage plus what to do.
+
+If you genuinely need many large images, use external image URLs or split across files — localStorage is not an image store.
 
 ## Browser support
 
