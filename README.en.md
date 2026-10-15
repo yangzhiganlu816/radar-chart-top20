@@ -6,6 +6,8 @@ A single-file web template for presenting multi-criteria rankings. Radar chart, 
 
 Open `index.html` and it runs. No build step, no dependencies, no network calls, no server.
 
+Both fonts (Orbitron / Ranking Inter) are **embedded in the file** under the SIL Open Font License, with the full license text included. So rendering is identical across machines, offline, and on systems without these fonts installed. That's also why the file is 1.1MB — roughly 690KB of it is font data.
+
 ![Preview](preview.png)
 
 ## Where it came from
