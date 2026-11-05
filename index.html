@@ -110,20 +110,23 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background: radial-gradient(ellipse at 30% 40%, rgba(10,8,5,0.9), #000000);
+            background:
+                radial-gradient(ellipse 62% 58% at 50% 47%, rgba(var(--theme-rgb),0.13) 0%, rgba(var(--theme-rgb),0.04) 45%, transparent 74%),
+                radial-gradient(ellipse at 30% 40%, rgba(10,8,5,0.92), #000000 72%);
             padding: 16px;
             position: relative;
+            overflow: hidden;
         }
         /* 背景排名虚影水印（浮在雷达图下方） */
         .bg-rank-watermark {
             position: absolute;
-            bottom: 12%;
+            bottom: 3%;
             left: 50%;
             transform: translateX(-50%);
             font-family: "Orbitron", monospace;
-            font-size: 11rem;
+            font-size: 15rem;
             font-weight: 900;
-            opacity: 0.08;
+            opacity: 0.035;
             color: var(--theme-color);
             pointer-events: none;
             white-space: nowrap;
@@ -135,29 +138,40 @@
             background-clip: text;
             /* 金属浮雕阴影 */
             filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 -2px 4px rgba(var(--theme-light-rgb),0.3)) drop-shadow(-2px 0 4px rgba(0,0,0,0.3)) drop-shadow(2px 0 4px rgba(0,0,0,0.3));
-            letter-spacing: 6px;
+            letter-spacing: 10px;
         }
         /* 左面板金色边框装饰（模拟图中数据卡片边框） */
+        /* 点阵底纹：只在雷达图周围浮现，像数据卡的网格底板 */
         .left-panel::before {
-            display: none;
             content: '';
             position: absolute;
-            top: 12px; left: 12px; right: 12px; bottom: 12px;
-            border: 3px solid rgba(var(--theme-rgb),0.45);
-            border-radius: 18px;
+            inset: 0;
             pointer-events: none;
-            z-index: 2;
+            z-index: 0;
+            background-image: radial-gradient(rgba(255,255,255,0.24) 1px, transparent 1.35px);
+            background-size: 26px 26px;
+            opacity: 0.32;
+            -webkit-mask-image: radial-gradient(ellipse 70% 66% at 50% 47%, #000 0%, rgba(0,0,0,0.6) 50%, transparent 84%);
+            mask-image: radial-gradient(ellipse 70% 66% at 50% 47%, #000 0%, rgba(0,0,0,0.6) 50%, transparent 84%);
         }
         /* 左上角┌装饰 */
+        /* 四角 HUD 角标：与视频里数据卡的取景框呼应 */
         .left-panel::after {
             content: '';
             position: absolute;
-            top: 6px; left: 6px;
-            width: 28px; height: 28px;
-            border-top: 4px solid var(--theme-color);
-            border-left: 4px solid var(--theme-color);
+            inset: 10px;
             pointer-events: none;
             z-index: 3;
+            opacity: 0.5;
+            background:
+                linear-gradient(var(--theme-color), var(--theme-color)) left top / 34px 2px no-repeat,
+                linear-gradient(var(--theme-color), var(--theme-color)) left top / 2px 34px no-repeat,
+                linear-gradient(var(--theme-color), var(--theme-color)) right top / 34px 2px no-repeat,
+                linear-gradient(var(--theme-color), var(--theme-color)) right top / 2px 34px no-repeat,
+                linear-gradient(var(--theme-color), var(--theme-color)) left bottom / 34px 2px no-repeat,
+                linear-gradient(var(--theme-color), var(--theme-color)) left bottom / 2px 34px no-repeat,
+                linear-gradient(var(--theme-color), var(--theme-color)) right bottom / 34px 2px no-repeat,
+                linear-gradient(var(--theme-color), var(--theme-color)) right bottom / 2px 34px no-repeat;
         }
 
         #radarCanvas { 
@@ -166,34 +180,21 @@
             height: auto; 
             transform: scale(1);
             transform-origin: 50% 50%;
-            filter: drop-shadow(0 0 25px rgba(var(--theme-rgb),0.55));
-            will-change: transform, opacity, filter;
+            will-change: transform, opacity;
+            position: relative;
+            z-index: 1;
         }
         #radarCanvas.radar-enter {
-            animation: radarScaleIn 0.3s linear both;
+            animation: radarScaleIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
         @keyframes radarScaleIn {
             0% {
-                transform: scale(1);
                 opacity: 0;
-                filter: drop-shadow(0 0 25px rgba(var(--theme-rgb), 0.55));
-            }
-            22% {
-                opacity: 0.62;
-            }
-            58% {
-                transform: scale(1);
-                opacity: 1;
-                filter: drop-shadow(0 0 25px rgba(var(--theme-rgb), 0.55));
-            }
-            80% {
-                transform: scale(1);
-                filter: drop-shadow(0 0 25px rgba(var(--theme-rgb), 0.55));
+                transform: scale(0.955);
             }
             100% {
-                transform: scale(1) rotate(0deg);
                 opacity: 1;
-                filter: blur(0) drop-shadow(0 0 25px rgba(var(--theme-rgb), 0.55));
+                transform: scale(1);
             }
         }
 
@@ -598,9 +599,10 @@
             border: 1.5px dashed rgba(var(--theme-rgb),0.8);
             border-radius: 10px;
             color: var(--theme-color);
-            font-family: Georgia, "Times New Roman", serif;
-            font-style: italic;
+            font-family: "Ranking Inter", Inter, "Noto Sans SC", sans-serif;
+            font-style: normal;
             font-weight: 700;
+            letter-spacing: 0.5px;
             text-align: center;
             padding: 3px 12px;
             outline: none;
@@ -1489,12 +1491,12 @@
         <div class="rules-columns">
             <figure class="rules-radar">
                 <svg id="rulesBlankRadar" viewBox="0 0 1600 1600" role="img" aria-label="空白六维雷达，刻度2、4、6、8、10，最外圈10分">
-                    <defs><radialGradient id="rulesRadarGlow"><stop offset="0" stop-color="#c084fc" stop-opacity=".24"/><stop offset=".34" stop-color="#9333ea" stop-opacity=".14"/><stop offset=".7" stop-color="#4c1d95" stop-opacity=".075"/><stop offset="1" stop-color="#4c1d95" stop-opacity="0"/></radialGradient></defs>
+                    <defs><radialGradient id="rulesRadarGlow"><stop offset="0" stop-color="#D4AF37" stop-opacity=".20"/><stop offset=".34" stop-color="#9A7718" stop-opacity=".11"/><stop offset=".7" stop-color="#4c1d95" stop-opacity=".055"/><stop offset="1" stop-color="#000000" stop-opacity="0"/></radialGradient></defs>
                     <circle cx="800" cy="800" r="581" fill="url(#rulesRadarGlow)"/>
-                    <g id="rulesRadarGrid" fill="none" stroke="#D4AF37" stroke-linejoin="round" stroke-linecap="round"></g>
-                    <g id="rulesRadarLabels" fill="white" font-family="Inter, 'Noto Sans SC', sans-serif" font-size="23" font-weight="600"></g>
+                    <g id="rulesRadarGrid" fill="none" stroke="#FFFFFF" stroke-linejoin="round" stroke-linecap="round"></g>
+                    <g id="rulesRadarLabels" fill="white" font-family="Inter, 'Noto Sans SC', sans-serif" font-size="52" font-weight="600" letter-spacing="2"></g>
                 </svg>
-                <figcaption><p class="rules-boundary">最外圈 = 10 分 · 每圈 2 分</p><p class="rules-overflow">8.5 分以上的维度按非线性比例向外拉伸，雷达图内容保持在画布内</p></figcaption>
+                <figcaption><p class="rules-boundary">内圈每圈 2 分 · 10 分为最外圈</p><p class="rules-overflow">超过 10 分的维度按非线性比例向外溢出，雷达图内容保持在画布内</p></figcaption>
             </figure>
             <!-- 维度明细由 JS 依据 dimNames / dimDescriptions / rankingWeightPercent 自动生成 -->
             <div class="rules-details" id="rulesDetails"></div>
@@ -1895,21 +1897,30 @@
                 return DISPLAY_TOTAL_ANCHOR_OUT + (rawScore - DISPLAY_TOTAL_ANCHOR_RAW) * _dispSlopeHigh;
             }
 
-            // ===== 雷达图维度映射 =====
+                        // ===== 雷达图维度映射 =====
             // 坐标轴固定为 0~10 分；仅改变雷达图的视觉半径，不改原始分数或排名。
+            // 0~10 分收在最外圈内（8.5 分处做连续过渡，避免原版在 8.5 分突然外扩的跳变）；
+            // 超过 10 分恢复原版的非线性外溢：分数越高，顶点越会冲出结构外框。
             const RADAR_MAX_SCORE = 10;
             const RADAR_NONLINEAR_POWER = 1.8;
             const RADAR_OVERFLOW_THRESHOLD = 8.5;
+            const RADAR_THRESHOLD_RATIO = 0.72;      // 8.5 分对应的视觉半径（相对 10 分圈）
+            const RADAR_OVERFLOW_MAX_RATIO = 1.90;   // 非线性外溢的视觉上限
             function dimensionRadiusRatio(score) {
                 const safeScore = Math.max(0, Number(score) || 0);
-                const nonlinearRatio = Math.pow(safeScore / RADAR_MAX_SCORE, RADAR_NONLINEAR_POWER);
-                if (safeScore < RADAR_OVERFLOW_THRESHOLD) return nonlinearRatio;
-                // 8.5 分为视觉分界；其上沿用幂函数的高分趋势并平滑拉伸到外圈之外。
-                const thresholdRatio = Math.pow(RADAR_OVERFLOW_THRESHOLD / RADAR_MAX_SCORE, RADAR_NONLINEAR_POWER);
-                const overflowProgress = Math.min(1.35, Math.max(0, (safeScore - RADAR_OVERFLOW_THRESHOLD) /
-                    (RADAR_MAX_SCORE - RADAR_OVERFLOW_THRESHOLD)));
-                return 1 + overflowProgress * (1.28 - thresholdRatio);
+                if (safeScore <= RADAR_OVERFLOW_THRESHOLD) {
+                    return RADAR_THRESHOLD_RATIO * Math.pow(safeScore / RADAR_OVERFLOW_THRESHOLD, RADAR_NONLINEAR_POWER);
+                }
+                if (safeScore <= RADAR_MAX_SCORE) {
+                    // 8.5 → 10 分：连续过渡到最外圈
+                    return RADAR_THRESHOLD_RATIO + (safeScore - RADAR_OVERFLOW_THRESHOLD) *
+                        (1 - RADAR_THRESHOLD_RATIO) / (RADAR_MAX_SCORE - RADAR_OVERFLOW_THRESHOLD);
+                }
+                // 10 分以上：沿用原版的非线性外溢趋势（二次曲线，11.5 分约 1.67 倍，冲出外框）
+                const overflow = safeScore - RADAR_MAX_SCORE;
+                return Math.min(RADAR_OVERFLOW_MAX_RATIO, 1 + overflow * 0.28 + overflow * overflow * 0.12);
             }
+
             singersRaw.sort((left, right) => weightedScoreUnits(left.points) - weightedScoreUnits(right.points));
 
             // ---------- 名次计算（含并列） ----------
@@ -2062,6 +2073,13 @@
                 document.addEventListener('DOMContentLoaded', attachRadarObserver, { once: true });
             } else {
                 attachRadarObserver();
+            }
+
+            // Canvas 文本不会在字体加载完成后自动重排：字体就绪后强制重绘一次，
+            // 否则首帧可能用回退字体渲染分数，之后一直停留在这个状态。
+            if (document.fonts) {
+                if (document.fonts.ready) document.fonts.ready.then(() => markSceneDirty());
+                document.fonts.addEventListener('loadingdone', () => markSceneDirty());
             }
 
             const pCanvas = document.getElementById('particles-canvas');
@@ -2647,7 +2665,7 @@
                     const dist = Math.hypot(dx, dy);
                     if (dist <= 30 && dist < bestDist) {
                         bestDist = dist;
-                        hit = { dim: i, kind: pt.y <= box.nameBottom ? 'name' : 'score' };
+                        hit = { dim: i, kind: pt.y <= box.nameBottom ? 'score' : 'name' };
                     }
                 }
                 return hit;
@@ -2697,9 +2715,9 @@
                 const scaleY = cRect.height / radarCanvas.height;
                 radarScoreInput.style.left = ((cRect.left - pRect.left) + hit.x * scaleX) + 'px';
                 // 输入框用 translate(-50%,-50%) 居中，所以 top 直接给文字中心：
-                // 维度名画在 y-30，分数画在 y+12（hit.y 是 y-6）
-                radarScoreInput.style.top = ((cRect.top - pRect.top) + (isName ? hit.y - 24 : hit.y + 18) * scaleY) + 'px';
-                radarScoreInput.style.fontSize = Math.max(15, Math.round((isName ? 23 : 40) * scaleX)) + 'px';
+                // 分数画在 y-8，维度名画在 y+44（hit.y 是 y+2）
+                radarScoreInput.style.top = ((cRect.top - pRect.top) + (isName ? hit.y + 42 : hit.y - 16) * scaleY) + 'px';
+                radarScoreInput.style.fontSize = Math.max(15, Math.round((isName ? 27 : 58) * scaleX)) + 'px';
                 radarScoreInput.style.width = Math.max(70, Math.round((hit.w + 26) * scaleX)) + 'px';
             }
 
@@ -3600,37 +3618,63 @@
             }
 
 
-            // 雷达内容缩放系数（1.0 = 原有大小）。只放大绘制尺寸，不改数据与配色。
-            const RADAR_CONTENT_SCALE = 1.5;
-            function fitRadarContent(scores) {
+            // 雷达内容缩放系数（1.0 = 基础大小）。只放大绘制尺寸，不改数据与配色。
+            const RADAR_CONTENT_SCALE = 1.40;
+            // 标签块尺寸估算：与 drawRadar 内的排版常量保持一致（BEST / 维度名 / 分数三段）
+            const RADAR_LABEL_HALF_W = 132;
+            const RADAR_LABEL_TOP = 88;
+            const RADAR_LABEL_BOTTOM = 64;
+                        function fitRadarContent(scores) {
                 const width = radarCanvas.width;
                 const height = radarCanvas.height;
                 const baseRadius = Math.min(width, height) * 0.275 * RADAR_CONTENT_SCALE;
+                // 标签块按「BEST 徽标 + 分数 + 维度名」三段排版时的外接尺寸估算。
+                // 超过 10 分的非线性外溢会把顶点撑到外框之外，标签也会跟着外移，
+                // 这里按同一规则一起参与自适应，保证任何比例的溢出都不会被画布裁掉。
                 const boundsAtScale = scale => {
                     const radius = baseRadius * scale;
-                    const horizontal = [];
-                    const vertical = [];
+                    const frameRadius = radius * 1.10;
+                    const dashedRadius = radius * 1.18;
+                    let left = -dashedRadius, right = dashedRadius, top = -dashedRadius, bottom = dashedRadius;
+                    const include = (x0, x1, y0, y1) => {
+                        if (x0 < left) left = x0;
+                        if (x1 > right) right = x1;
+                        if (y0 < top) top = y0;
+                        if (y1 > bottom) bottom = y1;
+                    };
+                    // 数据多边形顶点（含外溢）与外发光余量
+                    for (let index = 0; index < 6; index++) {
+                        const dataRadius = dimensionRadiusRatio(scores[index]) * radius;
+                        const x = dataRadius * HEX_COS[index];
+                        const y = dataRadius * HEX_SIN[index];
+                        include(x - 30, x + 30, y - 30, y + 30);
+                    }
+                    // 六个维度标签块（与 drawRadar 一样：外溢轴的标签跟着顶点外移）
                     for (let index = 0; index < 6; index++) {
                         const cos = HEX_COS[index];
                         const sin = HEX_SIN[index];
                         const dataRadius = dimensionRadiusRatio(scores[index]) * radius;
-                        const extentRadius = Math.max(radius * 1.035, dataRadius);
-                        horizontal.push(extentRadius * cos - 32, extentRadius * cos + 32);
-                        vertical.push(extentRadius * sin - 32, extentRadius * sin + 32);
-                        const centered = Math.abs(cos) < 0.1;
-                        const labelX = radius * cos + (centered ? 0 : Math.sign(cos) * 92);
-                        const labelY = centered ? sin * (radius + 115) : radius * sin;
-                        horizontal.push(labelX - (cos <= 0.1 ? 170 : 0), labelX + (cos >= -0.1 ? 170 : 0));
-                        vertical.push(labelY - 50, labelY + 40);
+                        const labelRadius = Math.max(frameRadius, dataRadius + 10);
+                        if (Math.abs(cos) < 0.1) {
+                            const y = (sin > 0 ? labelRadius + 104 : -labelRadius - 104);
+                            include(-RADAR_LABEL_HALF_W, RADAR_LABEL_HALF_W,
+                                y - RADAR_LABEL_TOP, y + RADAR_LABEL_BOTTOM);
+                        } else {
+                            const labelX = (cos > 0 ? labelRadius * cos + 46 : labelRadius * cos - 46);
+                            const labelY = labelRadius * sin;
+                            const x0 = cos > 0 ? labelX : labelX - RADAR_LABEL_HALF_W;
+                            const x1 = cos > 0 ? labelX + RADAR_LABEL_HALF_W : labelX;
+                            include(x0, x1, labelY - RADAR_LABEL_TOP, labelY + RADAR_LABEL_BOTTOM);
+                        }
                     }
-                    return { left: Math.min(...horizontal), right: Math.max(...horizontal), top: Math.min(...vertical), bottom: Math.max(...vertical) };
+                    return { left, right, top, bottom };
                 };
                 let lower = 0;
                 let upper = 1;
                 for (let iteration = 0; iteration < 28; iteration++) {
                     const scale = (lower + upper) / 2;
                     const bounds = boundsAtScale(scale);
-                    if (bounds.right - bounds.left <= width - 96 && bounds.bottom - bounds.top <= height - 96) lower = scale;
+                    if (bounds.right - bounds.left <= width - 72 && bounds.bottom - bounds.top <= height - 72) lower = scale;
                     else upper = scale;
                 }
                 radarLayoutScaleTo = lower;
@@ -3638,11 +3682,13 @@
                 radarLayoutOffsetToX = -(bounds.left + bounds.right) / 2;
                 radarLayoutOffsetToY = -(bounds.top + bounds.bottom) / 2;
             }
-            function drawRadar(){
+
+                        function drawRadar(){
                 const w = radarCanvas.width, h = radarCanvas.height;
                 fitRadarContent(targetScores);
+                const now = performance.now();
                 const layoutT = radarLayoutStart
-                    ? Math.min(1, Math.max(0, (performance.now() - radarLayoutStart - radarLayoutDelay) / radarLayoutDuration))
+                    ? Math.min(1, Math.max(0, (now - radarLayoutStart - radarLayoutDelay) / radarLayoutDuration))
                     : 0;
                 const layoutEase = layoutT * layoutT * layoutT * (layoutT * (layoutT * 6 - 15) + 10);
                 radarLayoutScale = radarLayoutScaleFrom + (radarLayoutScaleTo - radarLayoutScaleFrom) * layoutEase;
@@ -3650,302 +3696,395 @@
                 radarLayoutOffsetY = radarLayoutOffsetFromY + (radarLayoutOffsetToY - radarLayoutOffsetFromY) * layoutEase;
                 const cx = w/2 + radarLayoutOffsetX, cy = h/2 + radarLayoutOffsetY;
                 const maxR = Math.min(w, h) * 0.275 * RADAR_CONTENT_SCALE * radarLayoutScale;
-                let zoom = Math.min(1, zoomProgress);
                 const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
-                const zoomEased = easeOutCubic(zoom);
-                const now = performance.now();
-                const traceHex = (radius) => {
-                    ctx.beginPath();
-                    for(let i=0;i<6;i++){
-                        const x = cx + radius * HEX_COS[i];
-                        const y = cy + radius * HEX_SIN[i];
-                        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-                    }
-                    ctx.closePath();
-                };
+                const easeOutQuart = (x) => 1 - Math.pow(1 - x, 4);
+                const clamp01 = (x) => Math.max(0, Math.min(1, x));
+                const zoomEased = easeOutCubic(clamp01(zoomProgress));
+                const R = maxR * zoomEased;              // 10 分最外圈半径（超过 10 分按原版非线性比例外溢）
+                const frameR = R * 1.10;                 // 结构外框：超过 10 分的顶点会冲出这圈
+                const dashR = R * 1.18;                  // 虚线外环半径
+                const theme = currentTheme;
+                const themeLight = mixHex(theme, '#FFFFFF', 0.58);
+                const themePale = mixHex(theme, '#FFFFFF', 0.88);
+                const fillEased = easeOutQuart(clamp01(fillProgress));
+                const scoreAlpha = Math.min(1, fillEased * 1.55);
 
-                ctx.clearRect(0,0,w,h);
+                ctx.clearRect(0, 0, w, h);
+                if (R < 2) return;
                 ctx.save();
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
 
-                // 紫色舞台光晕，从中心向外自然衰减（按尺寸缓存，不逐帧重建）
-                const glowKey = cx + 'x' + cy + 'x' + maxR;
+                const traceHex = (radius) => {
+                    ctx.beginPath();
+                    for (let i = 0; i < 6; i++) {
+                        const x = cx + radius * HEX_COS[i];
+                        const y = cy + radius * HEX_SIN[i];
+                        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                };
+
+                // ===== 1. 环境光：主题色由中心向外自然衰减 =====
+                const glowKey = cx + 'x' + cy + 'x' + maxR + 'x' + theme;
                 if (ambientGlowCache.key !== glowKey) {
-                    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 1.32);
-                    gradient.addColorStop(0, 'rgba(192,132,252,0.24)');
-                    gradient.addColorStop(0.34, 'rgba(147,51,234,0.14)');
-                    gradient.addColorStop(0.7, 'rgba(76,29,149,0.075)');
+                    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 1.58);
+                    gradient.addColorStop(0, hexToRgba(theme, 0.28));
+                    gradient.addColorStop(0.40, hexToRgba(theme, 0.12));
+                    gradient.addColorStop(0.72, hexToRgba(theme, 0.026));
                     gradient.addColorStop(1, 'transparent');
                     ambientGlowCache = { key: glowKey, gradient };
                 }
                 ctx.fillStyle = ambientGlowCache.gradient;
                 ctx.beginPath();
-                ctx.arc(cx, cy, maxR * 1.32, 0, Math.PI * 2);
+                ctx.arc(cx, cy, maxR * 1.58, 0, Math.PI * 2);
                 ctx.fill();
 
-                // 入场扩散脉冲
-                const pulseElapsed = now - radarEntryStart;
-                if(pulseElapsed >= 0 && pulseElapsed < 1800){
-                    for(let ring=0; ring<3; ring++){
-                        const pulse = (pulseElapsed - ring * 170) / 1260;
-                        if(pulse <= 0 || pulse >= 1) continue;
-                        traceHex(maxR * (0.12 + 0.92 * pulse));
-                        ctx.strokeStyle = hexToRgba(currentTheme, (1 - pulse) * 0.28);
-                        ctx.lineWidth = 1 + (1 - pulse) * 5;
-                        ctx.shadowBlur = 28 * (1 - pulse);
-                        ctx.shadowColor = currentTheme;
-                        ctx.stroke();
-                    }
-                    ctx.shadowBlur = 0;
+                // ===== 2. 虚线外环（画在数据下层，像取景框） =====
+                ctx.setLineDash([7, 9]);
+                traceHex(dashR);
+                ctx.strokeStyle = 'rgba(255,255,255,0.26)';
+                ctx.lineWidth = 1.15;
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // ===== 3. 数据多边形（先铺填充，网格再压在上面形成「玻璃板」层次） =====
+                const polygonScores = effectivePolygonScores(now);
+                const polygonPoints = [];
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const mappedRatio = dimensionRadiusRatio(polygonScores[i]);
+                    const r = mappedRatio * R * fillEased;
+                    const x = cx + r * HEX_COS[i];
+                    const y = cy + r * HEX_SIN[i];
+                    polygonPoints.push({ x, y });
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+
+                if (fillProgress > 0.001) {
+                    // 垂直渐变填充：顶部亮、底部沉，模拟数据卡里那种「发光板材」质感
+                    const fillGradient = ctx.createLinearGradient(cx - R * 0.35, cy - R, cx + R * 0.35, cy + R);
+                    fillGradient.addColorStop(0, hexToRgba(mixHex(theme, '#FFFFFF', 0.24), 0.94 * fillEased));
+                    fillGradient.addColorStop(0.48, hexToRgba(theme, 0.92 * fillEased));
+                    fillGradient.addColorStop(1, hexToRgba(mixHex(theme, '#000000', 0.48), 0.94 * fillEased));
+                    ctx.fillStyle = fillGradient;
+                    ctx.fill();
+
+                    // 左上到右下的柔光扫过，让填充不至于像一块平色
+                    const sheen = ctx.createLinearGradient(cx - R, cy - R, cx + R * 0.5, cy + R);
+                    sheen.addColorStop(0, 'rgba(255,255,255,' + (0.14 * fillEased) + ')');
+                    sheen.addColorStop(0.55, 'rgba(255,255,255,0)');
+                    ctx.fillStyle = sheen;
+                    ctx.fill();
+
+                    // 左上光源：模拟视频里从斜上方打下来的高光
+                    const keyLight = ctx.createRadialGradient(cx - R * 0.34, cy - R * 0.42, 0, cx - R * 0.34, cy - R * 0.42, R * 1.15);
+                    keyLight.addColorStop(0, 'rgba(255,255,255,' + (0.14 * fillEased) + ')');
+                    keyLight.addColorStop(0.4, 'rgba(255,255,255,' + (0.03 * fillEased) + ')');
+                    keyLight.addColorStop(1, 'rgba(255,255,255,0)');
+                    ctx.fillStyle = keyLight;
+                    ctx.fill();
+
+                    // 中心高光：让多边形内部有层次
+                    const heartGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+                    heartGlow.addColorStop(0, hexToRgba(themePale, 0.16 * fillEased));
+                    heartGlow.addColorStop(0.55, hexToRgba(theme, 0.05 * fillEased));
+                    heartGlow.addColorStop(1, 'transparent');
+                    ctx.fillStyle = heartGlow;
+                    ctx.fill();
                 }
 
-                // 六边形刻度层：刻度半径与数据多边形使用同一套非线性映射。
-                const radarGridScores = [2, 4, 6, 8, 10];
-                for(let l=0;l<radarGridScores.length;l++){
-                    const gridScore = radarGridScores[l];
-                    if (gridScore === RADAR_MAX_SCORE) continue;
-                    traceHex(dimensionRadiusRatio(gridScore) * maxR * zoomEased);
-                    ctx.strokeStyle = hexToRgba(currentTheme, l === radarGridScores.length - 1 ? 0.56 : 0.2);
-                    ctx.lineWidth = l === radarGridScores.length - 1 ? 2.2 : 1.2;
+                // ===== 4. 结构层：辐射轴 + 同心刻度环 + 外框 + 中心基准 =====
+                for (let i = 0; i < 6; i++) {
+                    const cos = HEX_COS[i];
+                    const sin = HEX_SIN[i];
+                    ctx.beginPath();
+                    ctx.moveTo(cx + R * 0.06 * cos, cy + R * 0.06 * sin);
+                    ctx.lineTo(cx + frameR * cos, cy + frameR * sin);
+                    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(cx + R * 0.80 * cos, cy + R * 0.80 * sin);
+                    ctx.lineTo(cx + frameR * cos, cy + frameR * sin);
+                    ctx.strokeStyle = hexToRgba(themeLight, 0.30);
+                    ctx.lineWidth = 1;
                     ctx.stroke();
                 }
-                traceHex(maxR * zoomEased * 1.035);
-                ctx.strokeStyle = hexToRgba(mixHex(currentTheme, "#FFFFFF", 0.35), 0.38);
+
+                const gridScores = [2, 4, 6, 8];
+                for (let l = 0; l < gridScores.length; l++) {
+                    traceHex(dimensionRadiusRatio(gridScores[l]) * R);
+                    ctx.strokeStyle = 'rgba(255,255,255,' + (gridScores[l] === 8 ? 0.30 : 0.20) + ')';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+
+                // 10 分最外圈：超过这条线的维度按非线性比例向外溢出（原版的核心视觉特性）
+                traceHex(R);
+                ctx.strokeStyle = hexToRgba(themePale, 0.55);
                 ctx.lineWidth = 1.2;
                 ctx.stroke();
 
-                // 轴线、外圈刻度和节点
-                for(let i=0;i<6;i++){
-                    const cos = HEX_COS[i];
-                    const sin = HEX_SIN[i];
-                    const outerX = cx + maxR * cos * zoomEased;
-                    const outerY = cy + maxR * sin * zoomEased;
-                    ctx.beginPath();
-                    ctx.moveTo(cx,cy);
-                    ctx.lineTo(outerX, outerY);
-                    ctx.strokeStyle = hexToRgba(currentTheme, 0.28);
-                    ctx.lineWidth = 1.3;
-                    ctx.stroke();
+                // 外框：双线取景框的外圈（溢出图形会冲到这圈之外）
+                traceHex(frameR);
+                ctx.strokeStyle = hexToRgba(mixHex(theme, '#FFFFFF', 0.62), 0.85);
+                ctx.lineWidth = 1.9;
+                ctx.stroke();
 
-                    ctx.beginPath();
-                    ctx.moveTo(cx + maxR * cos * zoomEased * 0.96, cy + maxR * sin * zoomEased * 0.96);
-                    ctx.lineTo(outerX, outerY);
-                    ctx.strokeStyle = hexToRgba(mixHex(currentTheme, "#FFFFFF", 0.36), 0.64);
-                    ctx.lineWidth = 2.4;
-                    ctx.stroke();
-
-                    ctx.beginPath();
-                    ctx.arc(outerX, outerY, 5.5, 0, Math.PI * 2);
-                    ctx.fillStyle = hexToRgba(currentTheme, 0.72);
-                    ctx.shadowBlur = 14;
-                    ctx.shadowColor = currentTheme;
-                    ctx.fill();
-                    ctx.shadowBlur = 0;
-                }
-
-                // ===== 数据多边形（带填充动画） =====
-                const easeOutQuart = (x) => 1 - Math.pow(1 - x, 4);
-                const fillEased = easeOutQuart(Math.min(1, Math.max(0, fillProgress)));
-                const polygonPoints = [];
-
-                ctx.beginPath();
-                const polygonScores = effectivePolygonScores(now);
-                for(let i=0;i<6;i++){
-                    // 最大边界固定为 10 分；8.5 分以上按幂函数映射后自然突破外圈。
-                    const mappedRatio = dimensionRadiusRatio(polygonScores[i]);
-                    const r = mappedRatio * maxR * zoomEased * fillEased;
-                    const x = cx + r * HEX_COS[i];
-                    const y = cy + r * HEX_SIN[i];
-                    polygonPoints.push({x, y});
-                    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-                }
-                if(fillProgress > 0) {
-                    ctx.closePath();
-                    const polygonGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
-                    polygonGlow.addColorStop(0, hexToRgba(mixHex(currentTheme, "#FFFFFF", 0.26), 0.42 * fillEased));
-                    polygonGlow.addColorStop(1, hexToRgba(currentTheme, 0.14 * fillEased));
-                    ctx.fillStyle = polygonGlow;
-                    ctx.fill();
+                // 外框顶点菱形节点
+                for (let i = 0; i < 6; i++) {
+                    const vx = cx + frameR * HEX_COS[i];
+                    const vy = cy + frameR * HEX_SIN[i];
                     ctx.save();
-                    ctx.shadowBlur = 32 * fillEased;
-                    ctx.shadowColor = currentTheme;
-                    ctx.strokeStyle = hexToRgba(currentTheme, fillEased);
-                    ctx.lineWidth = 3.6;
+                    ctx.translate(vx, vy);
+                    ctx.rotate(Math.PI / 4);
+                    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+                    ctx.fillRect(-2.4, -2.4, 4.8, 4.8);
+                    ctx.fillStyle = hexToRgba(theme, 0.9);
+                    ctx.fillRect(-1.2, -1.2, 2.4, 2.4);
+                    ctx.restore();
+                }
+
+                // 顶部轴线上的刻度数字（小号、低对比，作为 HUD 装饰）
+                ctx.font = '400 16px Inter, "Noto Sans SC", sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                for (let l = 0; l < gridScores.length - 1; l++) {
+                    const r = dimensionRadiusRatio(gridScores[l]) * R;
+                    ctx.fillStyle = 'rgba(255,255,255,0.24)';
+                    ctx.fillText(String(gridScores[l]), cx + 13, cy - r + 10);
+                }
+
+                // 中心基准十字 + 光点
+                ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(cx - 17, cy); ctx.lineTo(cx + 17, cy);
+                ctx.moveTo(cx, cy - 17); ctx.lineTo(cx, cy + 17);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+                ctx.fillStyle = hexToRgba(theme, 0.8);
+                ctx.shadowBlur = 14;
+                ctx.shadowColor = theme;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // ===== 5. 入场脉冲：三圈由内向外扩散的六边形光波 =====
+                const pulseElapsed = now - radarEntryStart;
+                if (pulseElapsed >= 0 && pulseElapsed < 2000) {
+                    for (let ring = 0; ring < 3; ring++) {
+                        const pulse = (pulseElapsed - ring * 180) / 1320;
+                        if (pulse <= 0 || pulse >= 1) continue;
+                        traceHex(frameR * (0.16 + 0.96 * pulse));
+                        ctx.strokeStyle = 'rgba(255,255,255,' + ((1 - pulse) * 0.10) + ')';
+                        ctx.lineWidth = 1.2;
+                        ctx.stroke();
+                        traceHex(frameR * (0.16 + 0.96 * pulse));
+                        ctx.strokeStyle = hexToRgba(theme, (1 - pulse) * 0.30);
+                        ctx.lineWidth = 1 + (1 - pulse) * 3.2;
+                        ctx.shadowBlur = 22 * (1 - pulse);
+                        ctx.shadowColor = theme;
+                        ctx.stroke();
+                        ctx.shadowBlur = 0;
+                    }
+                }
+
+                // ===== 6. 数据描边 + 顶点节点 =====
+                if (fillProgress > 0.001) {
+                    ctx.save();
+                    // 外发光：先铺一圈主题色柔光
+                    ctx.strokeStyle = hexToRgba(theme, 0.30 * fillEased);
+                    ctx.lineWidth = 22;
                     ctx.stroke();
-                    ctx.shadowBlur = 12 * fillEased;
-                    ctx.strokeStyle = hexToRgba(mixHex(currentTheme, "#FFFFFF", 0.72), fillEased);
-                    ctx.lineWidth = 1.8;
+                    // 主描边：主题亮色 + 辉光
+                    ctx.shadowColor = hexToRgba(theme, 0.95);
+                    ctx.shadowBlur = 54 * fillEased;
+                    ctx.strokeStyle = hexToRgba(themeLight, 0.98 * fillEased);
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                    // 内层白色高光
+                    ctx.strokeStyle = 'rgba(255,255,255,' + (0.92 * fillEased) + ')';
+                    ctx.lineWidth = 1.4;
                     ctx.stroke();
                     ctx.restore();
 
-                    const nodeAlpha = Math.max(0, Math.min(1, (fillProgress - 0.28) / 0.72));
+                    // 顶点菱形节点（白芯 + 主题色外框）
+                    const nodeAlpha = clamp01((fillProgress - 0.22) / 0.78);
                     polygonPoints.forEach((point, index) => {
-                        const pointPulse = 7 + Math.sin(now / 220 + index) * 1;
-                        ctx.beginPath();
-                        ctx.arc(point.x, point.y, pointPulse, 0, Math.PI * 2);
-                        ctx.fillStyle = hexToRgba(currentTheme, 0.92 * nodeAlpha);
-                        ctx.shadowBlur = 24 * nodeAlpha;
-                        ctx.shadowColor = currentTheme;
-                        ctx.fill();
-                        ctx.beginPath();
-                        ctx.arc(point.x, point.y, 3.2, 0, Math.PI * 2);
-                        ctx.fillStyle = `rgba(255,255,255,${0.92 * nodeAlpha})`;
-                        ctx.fill();
+                        const size = 8 + Math.sin(now / 260 + index) * 0.8;
+                        ctx.save();
+                        ctx.translate(point.x, point.y);
+                        ctx.rotate(Math.PI / 4);
+                        ctx.shadowBlur = 18 * nodeAlpha;
+                        ctx.shadowColor = theme;
+                        ctx.fillStyle = hexToRgba(theme, 0.95 * nodeAlpha);
+                        ctx.fillRect(-size / 2, -size / 2, size, size);
                         ctx.shadowBlur = 0;
+                        ctx.fillStyle = 'rgba(255,255,255,' + (0.95 * nodeAlpha) + ')';
+                        const inner = size * 0.30;
+                        ctx.fillRect(-inner, -inner, inner * 2, inner * 2);
+                        ctx.restore();
                     });
 
                     // 改分即时反馈：被编辑维度的顶点沿轴扩散一圈光环，随过渡一起衰减
                     if (scoreEditPulseDim >= 0 && now - scoreEditPulseStart < SCORE_EDIT_PULSE_DURATION) {
                         const pulseT = (now - scoreEditPulseStart) / SCORE_EDIT_PULSE_DURATION;
-                        const pulseR = dimensionRadiusRatio(polygonScores[scoreEditPulseDim]) * maxR * zoomEased;
+                        const pulseR = dimensionRadiusRatio(polygonScores[scoreEditPulseDim]) * R;
                         const pulseX = cx + pulseR * HEX_COS[scoreEditPulseDim];
                         const pulseY = cy + pulseR * HEX_SIN[scoreEditPulseDim];
                         ctx.beginPath();
                         ctx.arc(pulseX, pulseY, 12 + 52 * pulseT, 0, Math.PI * 2);
-                        ctx.strokeStyle = hexToRgba(mixHex(currentTheme, "#FFFFFF", 0.5), (1 - pulseT) * 0.9);
+                        ctx.strokeStyle = hexToRgba(themePale, (1 - pulseT) * 0.9);
                         ctx.lineWidth = 2.6 * (1 - pulseT) + 0.4;
                         ctx.shadowBlur = 22 * (1 - pulseT);
-                        ctx.shadowColor = currentTheme;
+                        ctx.shadowColor = theme;
                         ctx.stroke();
                         ctx.shadowBlur = 0;
                     }
                 }
 
-                // 玩法榜单式标签：维度名、斜体分数、主题色 BEST
-                // BEST 判定：该维度分数为全榜最高（允许并列）即打标，不再局限于总榜第一。
-                for(let i=0;i<6;i++){
+                // ===== 7. 维度标签：BEST 徽标 / 维度名 / 分数 =====
+                // 分数使用从白到主题色的垂直渐变，和右侧数据卡片的高亮数字同一套语言。
+                const scoreGradient = ctx.createLinearGradient(0, cy - R, 0, cy + R);
+                scoreGradient.addColorStop(0, '#FFFFFF');
+                scoreGradient.addColorStop(1, mixHex(theme, '#FFFFFF', 0.64));
+                const nameFont = '600 27px Inter, "Noto Sans SC", "Microsoft YaHei", sans-serif';
+                const scoreFont = '700 58px "Ranking Inter", Inter, "Noto Sans SC", sans-serif';
+                const bestFont = '700 20px Inter, "Noto Sans SC", sans-serif';
+
+                for (let i = 0; i < 6; i++) {
                     const cos = HEX_COS[i];
                     const sin = HEX_SIN[i];
-                    const gridRadius = maxR * zoomEased;
-                    const labelGap = 92;
-                    const labelPadding = 112;
-                    const vertexX = cx + gridRadius * cos;
-                    const vertexY = cy + gridRadius * sin;
                     const isCenter = Math.abs(cos) < 0.1;
-                    let x = isCenter
-                        ? cx
-                        : vertexX + (cos > 0 ? labelGap : -labelGap);
-                    let y = isCenter
-                        ? cy + (sin > 0 ? gridRadius + 115 : -gridRadius - 115)
-                        : vertexY;
+                    // 标签环：平时贴住外框；某个维度因超过 10 分的非线性外溢冲出外框时，
+                    // 该轴标签跟着数据点一起外移，保证文字始终在图形之外（原版的溢出效果完整保留）。
+                    const labelRadius = Math.max(frameR, dimensionRadiusRatio(targetScores[i]) * R + 10);
+                    const vertexX = cx + labelRadius * cos;
+                    const vertexY = cy + labelRadius * sin;
+                    let x = isCenter ? cx : vertexX + (cos > 0 ? 46 : -46);
+                    let y = isCenter ? cy + (sin > 0 ? labelRadius + 104 : -labelRadius - 104) : vertexY;
                     const align = isCenter ? 'center' : (cos > 0 ? 'left' : 'right');
                     const valStr = formatScore(currentScores[i], i);
                     const score = targetScores[i];
                     const isBest = typeof globalMax[i] === 'number' &&
                         Math.abs(score - globalMax[i]) < 0.001 && score > 0;
-                    const scoreAlpha = Math.min(1, fillEased * 1.5);
                     const isEditingDim = radarEditDim === i && radarEditKind === 'score';
                     const isEditingName = radarEditDim === i && radarEditKind === 'name';
                     const isHoverScore = radarHoverDim === i && radarHoverKind === 'score' && !isEditingDim;
                     const isHoverName = radarHoverDim === i && radarHoverKind === 'name' && !isEditingName;
+
                     // BEST 徽标透明度平滑：夺冠淡入、失冠淡出（每帧向目标靠拢）
                     const bestAlphaTarget = isBest ? 1 : 0;
                     if (bestLabelAlpha[i] === null) bestLabelAlpha[i] = bestAlphaTarget;
                     else bestLabelAlpha[i] += (bestAlphaTarget - bestLabelAlpha[i]) * 0.14;
-                    if (align === 'left') x = Math.min(w - labelPadding, x);
-                    if (align === 'right') x = Math.max(labelPadding, x);
-                    y = Math.max(labelPadding + 30, Math.min(h - labelPadding - 12, y));
 
-                    // 记录本格标签的命中区域，供点击编辑与输入框定位使用。
-                    // nameBottom 是分界线：其上是维度名（点击改名），其下是分数（点击改分）。
-                    ctx.font = 'italic 700 40px Georgia, "Times New Roman", serif';
+                    // 量出标签块尺寸，做画布内安全夹取，并记录点击命中框
+                    ctx.font = scoreFont;
                     const valW = ctx.measureText(valStr).width;
-                    ctx.font = '600 23px Inter, "Noto Sans SC", sans-serif';
+                    ctx.font = nameFont;
                     const nameW = ctx.measureText(dimNames[i]).width;
+                    const labelW = Math.max(valW, nameW) + 22;
+                    if (align === 'left') x = Math.min(x, w - 30 - labelW);
+                    else if (align === 'right') x = Math.max(x, 30 + labelW);
+                    y = Math.max(RADAR_LABEL_TOP + 18, Math.min(h - RADAR_LABEL_BOTTOM - 12, y));
+
                     radarScoreHits[i] = {
-                        x: align === 'left' ? x + valW / 2 : (align === 'right' ? x - valW / 2 : x),
-                        y: y - 6,
-                        w: Math.max(valW, nameW) + 28,
-                        h: 82,
-                        nameBottom: y - 6
+                        x: align === 'left' ? x + labelW / 2 : (align === 'right' ? x - labelW / 2 : x),
+                        y: y + 2,
+                        w: labelW,
+                        h: 136,
+                        nameBottom: y + 22
                     };
                     if (radarEditDim === i) positionRadarScoreInput(); // 布局重排时输入框跟着标签走
+                    if (scoreAlpha <= 0.02) continue;
 
-                    ctx.textAlign = align;
+                    // 轴末端的引导刻线 + 光点（把标签和雷达图连起来）
+                    ctx.beginPath();
+                    ctx.moveTo(cx + (labelRadius - 6) * cos, cy + (labelRadius - 6) * sin);
+                    ctx.lineTo(cx + (labelRadius + 22) * cos, cy + (labelRadius + 22) * sin);
+                    ctx.strokeStyle = 'rgba(255,255,255,' + (0.24 * scoreAlpha) + ')';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(cx + (labelRadius + 22) * cos, cy + (labelRadius + 22) * sin, 2, 0, Math.PI * 2);
+                    ctx.fillStyle = hexToRgba(themeLight, 0.8 * scoreAlpha);
+                    ctx.fill();
+
                     ctx.textBaseline = 'middle';
+                    ctx.textAlign = align;
                     ctx.shadowBlur = 0;
                     ctx.shadowColor = 'transparent';
 
-                    // 维度名（上半层）：悬停高亮并加下划线，提示这一行可以直接点击改名
-                    if (!isEditingName) {
-                        ctx.font = '600 23px Inter, "Noto Sans SC", sans-serif';
-                        ctx.fillStyle = isHoverName ? hexToRgba(mixHex(currentTheme, "#FFFFFF", 0.45), 1) : '#ffffff';
-                        ctx.fillText(dimNames[i], x, y - 30);
-                        if (isHoverName && scoreAlpha > 0.02) {
-                            const nameLineX = align === 'left' ? x : (align === 'right' ? x - nameW : x - nameW / 2);
-                            ctx.beginPath();
-                            ctx.moveTo(nameLineX, y - 15);
-                            ctx.lineTo(nameLineX + nameW, y - 15);
-                            ctx.strokeStyle = hexToRgba(mixHex(currentTheme, "#FFFFFF", 0.55), 0.9 * scoreAlpha);
-                            ctx.lineWidth = 2;
-                            ctx.stroke();
-                        }
+                    // BEST 徽标（小号、带下划线，不再用超大衬线字压住画面）
+                    const bestDrawAlpha = scoreAlpha * clamp01(bestLabelAlpha[i] === null ? 0 : bestLabelAlpha[i]);
+                    if (bestDrawAlpha > 0.01) {
+                        ctx.save();
+                        ctx.globalAlpha = bestDrawAlpha;
+                        ctx.font = bestFont;
+                        ctx.letterSpacing = '2px';
+                        const bestText = 'BEST';
+                        const bestW = ctx.measureText(bestText).width - 2;
+                        const bestX = align === 'left' ? x : (align === 'right' ? x - bestW : x - bestW / 2);
+                        const bestY = y - 72;
+                        ctx.fillStyle = hexToRgba(themePale, 0.95);
+                        ctx.shadowBlur = 12;
+                        ctx.shadowColor = theme;
+                        ctx.fillText(bestText, bestX, bestY);
+                        ctx.shadowBlur = 0;
+                        ctx.beginPath();
+                        ctx.moveTo(bestX, bestY + 12);
+                        ctx.lineTo(bestX + bestW, bestY + 12);
+                        ctx.strokeStyle = hexToRgba(theme, 0.55);
+                        ctx.lineWidth = 1.4;
+                        ctx.stroke();
+                        ctx.restore();
                     }
 
+                    // 分数（上层）：悬停高亮 + 主题辉光，提示可直接点击改分
                     if (!isEditingDim) {
-                        ctx.font = 'italic 700 40px Georgia, "Times New Roman", serif';
-                        ctx.fillStyle = hexToRgba(mixHex(currentTheme, "#FFFFFF", isHoverScore ? 0.72 : 0.38), scoreAlpha);
+                        ctx.font = scoreFont;
+                        ctx.fillStyle = scoreGradient;
+                        ctx.globalAlpha = scoreAlpha;
                         if (isHoverScore) {
-                            ctx.shadowBlur = 16;
-                            ctx.shadowColor = currentTheme;
+                            ctx.shadowBlur = 18;
+                            ctx.shadowColor = theme;
                         }
-                        ctx.fillText(valStr, x, y + 12);
+                        ctx.fillText(valStr, x, y - 8);
                         ctx.shadowBlur = 0;
                         ctx.shadowColor = 'transparent';
-                        // 悬停下划线：提示这一格分数可以直接点击修改
+                        ctx.globalAlpha = 1;
                         if (isHoverScore) {
                             const lineX = align === 'left' ? x : (align === 'right' ? x - valW : x - valW / 2);
                             ctx.beginPath();
-                            ctx.moveTo(lineX, y + 36);
-                            ctx.lineTo(lineX + valW, y + 36);
-                            ctx.strokeStyle = hexToRgba(mixHex(currentTheme, "#FFFFFF", 0.55), 0.9 * scoreAlpha);
-                            ctx.lineWidth = 2;
+                            ctx.moveTo(lineX, y + 26);
+                            ctx.lineTo(lineX + valW, y + 26);
+                            ctx.strokeStyle = hexToRgba(themePale, 0.9 * scoreAlpha);
+                            ctx.lineWidth = 1.6;
                             ctx.stroke();
                         }
                     }
 
-                    const bestDrawAlpha = scoreAlpha * Math.max(0, Math.min(1, bestLabelAlpha[i]));
-                    if(bestDrawAlpha > 0.01){
-                        // BEST 必须完全落在雷达图形之外：按该维度"最大可能溢出半径"再留 22% 余量，
-                        // 因此无论图形怎么外溢，文字都不会与雷达图重叠。
-                        const maxOverflowR = dimensionRadiusRatio(globalMax[i]) * maxR * zoomEased;
-                        const bestSafeR = maxOverflowR * 1.22 + 40;
-                        ctx.save();
-                        ctx.font = 'italic 700 68px Georgia, "Times New Roman", serif';
-                        ctx.textAlign = cos > 0.1 ? 'left' : (cos < -0.1 ? 'right' : 'center');
-                        ctx.textBaseline = 'middle';
-                        const bestMetrics = ctx.measureText('BEST');
-                        const bestPadding = 48;
-                        const bestX = Math.max(bestPadding + bestMetrics.actualBoundingBoxLeft,
-                            Math.min(w - bestPadding - bestMetrics.actualBoundingBoxRight - 6, cx + bestSafeR * cos));
-                        const bestY = Math.max(bestPadding + bestMetrics.actualBoundingBoxAscent,
-                            Math.min(h - bestPadding - bestMetrics.actualBoundingBoxDescent - 8, cy + bestSafeR * sin));
-
-                        ctx.shadowBlur = 0;
-                        ctx.shadowColor = 'transparent';
-                        ctx.lineWidth = 12;
-                        ctx.strokeStyle = hexToRgba('#05020B', 0.92 * bestDrawAlpha);
-                        ctx.strokeText('BEST', bestX + 6, bestY + 8);
-                        ctx.fillStyle = hexToRgba(mixHex(currentTheme, '#000000', 0.58), 0.96 * bestDrawAlpha);
-                        ctx.fillText('BEST', bestX + 6, bestY + 8);
-
-                        ctx.lineWidth = 6;
-                        ctx.strokeStyle = hexToRgba(mixHex(currentTheme, '#05020B', 0.46), 0.98 * bestDrawAlpha);
-                        ctx.shadowBlur = 24 * bestDrawAlpha;
-                        ctx.shadowColor = hexToRgba(currentTheme, 0.92 * bestDrawAlpha);
-                        ctx.strokeText('BEST', bestX, bestY);
-                        ctx.fillStyle = hexToRgba(mixHex(currentTheme, '#FFFFFF', 0.62), bestDrawAlpha);
-                        ctx.fillText('BEST', bestX, bestY);
-
-                        ctx.shadowBlur = 0;
-                        ctx.fillStyle = `rgba(255,255,255,${0.3 * bestDrawAlpha})`;
-                        ctx.fillText('BEST', bestX - 1, bestY - 2);
-                        ctx.shadowBlur = 0;
-                        ctx.shadowColor = 'transparent';
-                        ctx.restore();
+                    // 维度名（下层）：悬停高亮并加下划线，提示可直接点击改名
+                    if (!isEditingName) {
+                        ctx.font = nameFont;
+                        ctx.fillStyle = isHoverName ? hexToRgba(themePale, 1) : 'rgba(255,255,255,0.66)';
+                        ctx.fillText(dimNames[i], x, y + 44);
+                        if (isHoverName) {
+                            const lineX = align === 'left' ? x : (align === 'right' ? x - nameW : x - nameW / 2);
+                            ctx.beginPath();
+                            ctx.moveTo(lineX, y + 60);
+                            ctx.lineTo(lineX + nameW, y + 60);
+                            ctx.strokeStyle = hexToRgba(themePale, 0.9 * scoreAlpha);
+                            ctx.lineWidth = 1.6;
+                            ctx.stroke();
+                        }
                     }
                 }
+                ctx.letterSpacing = '0px';
                 ctx.restore();
             }
 
@@ -4449,26 +4588,65 @@
             // 维度名可以在页面上就地改，所以这里必须是可重复调用的函数 ——
             // 改名后调用一次，规则页立刻与新名字保持一致。
             // 两个 <g> 容器本身是空的（样式挂在元素上），replaceChildren 不会丢样式。
-            function renderRulesMeta() {
+                        function renderRulesMeta() {
                 rulesGrid.replaceChildren();
                 rulesLabels.replaceChildren();
+                const R = 500;
+                const frameR = R * 1.10;
+                const dashR = R * 1.18;
+                const theme = currentTheme;
+                const trace = (radius, attributes) => rulesSvgElement('polygon', Object.assign({
+                    points: rulesPoints(radius).map(point => point.join(',')).join(' '),
+                    fill: 'none',
+                    'stroke-linejoin': 'round',
+                    'stroke-linecap': 'round'
+                }, attributes), rulesGrid);
+
+                // 规则页的雷达光晕跟随当前主题色（默认金色）
+                const glow = document.getElementById('rulesRadarGlow');
+                if (glow) {
+                    const stops = glow.querySelectorAll('stop');
+                    const alphas = [0.20, 0.11, 0.055, 0];
+                    stops.forEach((stop, index) => {
+                        stop.setAttribute('stop-color', index === stops.length - 1 ? '#000000' : theme);
+                        stop.setAttribute('stop-opacity', String(alphas[index] ?? 0));
+                    });
+                }
+
+                // 外圈结构：虚线外环 + 结构外框
+                trace(dashR, { stroke: '#FFFFFF', 'stroke-opacity': .32, 'stroke-width': 2.4, 'stroke-dasharray': '9 12' });
+                trace(frameR, { stroke: '#FFFFFF', 'stroke-opacity': .92, 'stroke-width': 3.6 });
+
+                // 辐射轴
+                rulesPoints(frameR).forEach(point => {
+                    rulesSvgElement('line', { x1: 800, y1: 800, x2: point[0], y2: point[1], stroke: '#FFFFFF', 'stroke-opacity': .26, 'stroke-width': 2.4 }, rulesGrid);
+                });
+
+                // 同心刻度环 + 顶部刻度数字（2 / 4 / 6 / 8 分）
                 for (let level = 0; level < rulesGridScores.length; level++) {
                     const gridScore = rulesGridScores[level];
-                    const radius = dimensionRadiusRatio(gridScore) * 440;
-                    if (gridScore !== RADAR_MAX_SCORE) {
-                        rulesSvgElement('polygon', { points: rulesPoints(radius).map(point => point.join(',')).join(' '), 'stroke-width': 1.2, 'stroke-opacity': .2 }, rulesGrid);
-                    }
-                    rulesSvgElement('text', { x: 818, y: 800 - radius + 20, 'font-size': 23, 'font-family': 'Inter, sans-serif', 'font-weight': 400, fill: '#E7CF7A' }, rulesLabels, String(gridScore));
+                    if (gridScore === RADAR_MAX_SCORE) continue;
+                    const radius = dimensionRadiusRatio(gridScore) * R;
+                    trace(radius, { stroke: '#FFFFFF', 'stroke-opacity': gridScore === 8 ? .46 : .32, 'stroke-width': 3 });
+                    rulesSvgElement('text', { x: 814, y: 800 - radius + 14, 'font-size': 40, 'font-family': 'Inter, sans-serif', 'font-weight': 400, fill: 'rgba(255,255,255,0.62)' }, rulesLabels, String(gridScore));
                 }
-                rulesSvgElement('polygon', { points: rulesPoints(440 * 1.035).map(point => point.join(',')).join(' '), stroke: '#e3cb7d', 'stroke-width': 1.2, 'stroke-opacity': .38 }, rulesGrid);
-                rulesPoints(440).forEach((point, index) => {
-                    rulesSvgElement('line', { x1: 800, y1: 800, x2: point[0], y2: point[1], 'stroke-width': 1.3, 'stroke-opacity': .28 }, rulesGrid);
-                    rulesSvgElement('circle', { cx: point[0], cy: point[1], r: 5.5, fill: '#D4AF37', 'fill-opacity': .72, stroke: 'none' }, rulesGrid);
+
+                // 10 分最外圈：超过此线按非线性比例向外溢出（与榜单主图一致）
+                trace(R, { stroke: theme, 'stroke-opacity': .90, 'stroke-width': 3.2 });
+
+                // 中心基准十字 + 光点
+                rulesSvgElement('line', { x1: 778, y1: 800, x2: 822, y2: 800, stroke: '#FFFFFF', 'stroke-opacity': .22 }, rulesGrid);
+                rulesSvgElement('line', { x1: 800, y1: 778, x2: 800, y2: 822, stroke: '#FFFFFF', 'stroke-opacity': .22 }, rulesGrid);
+                rulesSvgElement('circle', { cx: 800, cy: 800, r: 6, fill: theme, 'fill-opacity': .8 }, rulesGrid);
+
+                // 外框顶点节点 + 维度名
+                rulesPoints(frameR).forEach((point, index) => {
+                    rulesSvgElement('circle', { cx: point[0], cy: point[1], r: 4.2, fill: '#FFFFFF', 'fill-opacity': .7 }, rulesGrid);
                     const centered = index === 0 || index === 3;
                     const right = index === 1 || index === 2;
-                    const labelX = centered ? 800 : point[0] + (right ? 92 : -92);
-                    const labelY = centered ? point[1] + (index === 0 ? -115 : 115) : point[1];
-                    rulesSvgElement('text', { x: labelX, y: labelY - 30, 'text-anchor': centered ? 'middle' : right ? 'start' : 'end', 'dominant-baseline': 'middle' }, rulesLabels, dimNames[index]);
+                    const labelX = centered ? 800 : point[0] + (right ? 46 : -46);
+                    const labelY = centered ? point[1] + (index === 0 ? -92 : 92) : point[1];
+                    rulesSvgElement('text', { x: labelX, y: labelY, 'text-anchor': centered ? 'middle' : right ? 'start' : 'end', 'dominant-baseline': 'middle' }, rulesLabels, dimNames[index]);
                 });
 
                 // 右侧维度明细：与 dimNames / rankingWeightPercent / dimDescriptions 同源生成
@@ -4498,6 +4676,7 @@
                     detailsEl.append(row);
                 });
             }
+
             renderRulesMeta();
 
             requestAnimationFrame(tick);
